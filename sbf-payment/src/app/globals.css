@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  /* Ankara Üniversitesi Kurumsal Renkleri */
+  --ankara-blue: #152746;
+  --ankara-yellow: #cf9d34;
+  --ankara-light-blue: #e8ecf3;
+
+  --background: #f8fafc;
+  /* Açık gri/beyaz zemin */
+  --foreground: #152746;
+  /* Metinler lacivert */
+
+  --primary: #152746;
+  /* Ana renk Lacivert */
+  --primary-foreground: #ffffff;
+
+  --secondary: #cf9d34;
+  /* İkincil renk Altın Sarısı */
+  --secondary-foreground: #152746;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --accent: #e8ecf3;
+  --accent-foreground: #152746;
+
+  --border: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #152746;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  /* Kurumsal hafif desen veya düz renk */
+  background-image: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  @apply rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300;
+}
+
+.dark .glass-card {
+  background: rgba(20, 20, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
