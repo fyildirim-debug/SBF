@@ -4,6 +4,7 @@ import { signIn } from '@/lib/auth';
 import { AuthError } from 'next-auth';
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import type { AuthState } from "@/lib/types";
 
 export async function setupAdmin(formData: FormData) {
     const email = formData.get("email") as string;
@@ -39,9 +40,9 @@ export async function setupAdmin(formData: FormData) {
 }
 
 export async function authenticate(
-    prevState: any,
+    prevState: AuthState | undefined,
     formData: FormData,
-) {
+): Promise<AuthState> {
     try {
         await signIn('credentials', {
             email: formData.get('email'),
@@ -60,8 +61,11 @@ export async function authenticate(
         }
 
         // Next.js Redirect Hatası Kontrolü
-        if ((error as any)?.digest?.startsWith?.('NEXT_REDIRECT')) {
-            return { success: true };
+        if (error && typeof error === 'object' && 'digest' in error) {
+            const digest = (error as { digest?: string }).digest;
+            if (digest?.startsWith?.('NEXT_REDIRECT')) {
+                return { success: true };
+            }
         }
 
         throw error;

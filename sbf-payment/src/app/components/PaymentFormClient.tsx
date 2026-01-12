@@ -30,15 +30,25 @@ interface PaymentFormClientProps {
     extraFields: FormField[];
 }
 
+// Form veri tipi
+interface PaymentFormData {
+    tcNo: string;
+    fullName: string;
+    studentNo: string;
+    facilityId: string;
+    receipt: FileList;
+    [key: string]: string | FileList; // Dinamik alanlar için
+}
+
 export function PaymentFormClient({ facilities, extraFields }: PaymentFormClientProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitResult, setSubmitResult] = useState<{ success?: boolean; error?: string } | null>(null);
-    const { register, handleSubmit, formState: { errors }, watch, reset } = useForm();
+    const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<PaymentFormData>();
 
     const selectedFacilityId = watch("facilityId");
     const selectedFacility = facilities.find(f => f.id === selectedFacilityId);
 
-    async function onSubmit(data: any) {
+    async function onSubmit(data: PaymentFormData) {
         setIsSubmitting(true);
         setSubmitResult(null);
 
@@ -55,8 +65,9 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
         // Dinamik alanları da ekle
         if (extraFields) {
             extraFields.forEach(field => {
-                if (data[field.name]) {
-                    formData.append(field.name, data[field.name]);
+                const fieldValue = data[field.name];
+                if (fieldValue && typeof fieldValue === 'string') {
+                    formData.append(field.name, fieldValue);
                 }
             });
         }
@@ -69,7 +80,8 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                 setSubmitResult({ success: true });
                 reset();
             }
-        } catch (e) {
+        } catch (error) {
+            console.error("Form gönderim hatası:", error);
             setSubmitResult({ error: "Beklenmedik bir hata oluştu." });
         } finally {
             setIsSubmitting(false);

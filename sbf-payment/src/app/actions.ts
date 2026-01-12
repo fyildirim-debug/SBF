@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { writeFile } from "fs/promises";
 import { join } from "path";
-import { redirect } from "next/navigation";
 
 export async function submitPayment(formData: FormData) {
     const tcNo = formData.get("tcNo") as string;

@@ -25,7 +25,7 @@ export async function addFacility(formData: FormData) {
         revalidatePath("/admin/facilities");
         revalidatePath("/"); // Ana sayfadaki dropdown da güncellensin
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Tesis eklenirken hata oluştu." };
     }
 }
@@ -36,7 +36,7 @@ export async function deleteFacility(id: string) {
         revalidatePath("/admin/facilities");
         revalidatePath("/");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Silinirken hata oluştu." };
     }
 }
@@ -52,7 +52,7 @@ export async function updateSubmissionStatus(id: string, status: string) {
         revalidatePath("/admin/submissions");
         revalidatePath("/admin");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Güncellenirken hata oluştu." };
     }
 }

@@ -2,9 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { updateSubmissionStatus } from "../../actions";
 import { SubmissionDetails } from "./SubmissionDetails";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Check, X, Clock } from "lucide-react";
-import { revalidatePath } from "next/cache";
+
 
 export const dynamic = 'force-dynamic';
 

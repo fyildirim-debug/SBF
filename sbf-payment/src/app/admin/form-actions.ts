@@ -39,7 +39,7 @@ export async function addFormField(formData: FormData) {
         revalidatePath("/admin/forms");
         revalidatePath("/");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Alan eklenirken hata oluştu." };
     }
 }
@@ -50,7 +50,7 @@ export async function deleteFormField(id: string) {
         revalidatePath("/admin/forms");
         revalidatePath("/");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Silinirken hata oluştu." };
     }
 }
@@ -64,7 +64,7 @@ export async function toggleFormFieldActive(id: string, currentState: boolean) {
         revalidatePath("/admin/forms");
         revalidatePath("/");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Güncellenirken hata oluştu." };
     }
 }

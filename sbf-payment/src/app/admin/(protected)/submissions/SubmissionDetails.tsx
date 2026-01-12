@@ -2,10 +2,11 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download, Calendar } from "lucide-react";
+import { FileText, Download } from "lucide-react";
+import type { SerializedSubmission } from "@/lib/types";
 
-export function SubmissionDetails({ submission }: { submission: any }) {
-    let extraData: Record<string, any> = {};
+export function SubmissionDetails({ submission }: { submission: SerializedSubmission }) {
+    let extraData: Record<string, string> = {};
     try {
         if (submission.extraData) {
             extraData = JSON.parse(submission.extraData);

@@ -47,8 +47,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             // Token'dan user id'yi session'a ekle
             if (token.sub && session.user) {
-                // session.user.id normalde tiplerde yok, extend etmek gerekir ama şimdilik JS tarafında çalışır
-                (session.user as any).id = token.sub;
+                // Session user nesnesine id ekle
+                Object.assign(session.user, { id: token.sub });
             }
             return session;
         },

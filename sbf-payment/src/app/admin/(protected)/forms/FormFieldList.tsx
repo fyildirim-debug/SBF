@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 
 import { Trash2, Eye, EyeOff } from "lucide-react";
 import { useTransition } from "react";
+import type { FormField } from "@/lib/types";
 
 // Badge bileşenini burada inline tanımlayalım hızlıca
 function Badge({ variant = "default", children }: { variant?: "default" | "secondary" | "destructive", children: React.ReactNode }) {
@@ -16,7 +17,7 @@ function Badge({ variant = "default", children }: { variant?: "default" | "secon
     return <span className={`px-2 py-0.5 rounded text-xs font-medium ${classes[variant]}`}>{children}</span>
 }
 
-export function FormFieldList({ fields }: { fields: any[] }) {
+export function FormFieldList({ fields }: { fields: FormField[] }) {
     return (
         <div className="space-y-4">
             {fields.length === 0 ? (

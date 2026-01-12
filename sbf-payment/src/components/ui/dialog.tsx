@@ -18,7 +18,7 @@ export const Dialog = ({ children }: { children: React.ReactNode }) => {
     )
 }
 
-export const DialogTrigger = ({ children, asChild }: { children: React.ReactNode, asChild?: boolean }) => {
+export const DialogTrigger = ({ children }: { children: React.ReactNode }) => {
     const { onOpenChange } = React.useContext(DialogContext)
     return (
         <div onClick={(e) => { e.stopPropagation(); onOpenChange(true); }} className="cursor-pointer inline-flex">
