@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function SubmissionsPage() {
     const submissions = await prisma.submission.findMany({
         orderBy: { createdAt: "desc" },
-        include: { facility: true },
+        include: { facility: true, consents: true },
     });
 
     return (
@@ -77,6 +77,10 @@ export default async function SubmissionsPage() {
                                                 <div className="flex items-center justify-end gap-2">
                                                     <SubmissionDetails submission={{
                                                         ...sub,
+                                                        consents: sub.consents?.map(c => ({
+                                                            ...c,
+                                                            consentAt: c.consentAt.toISOString()
+                                                        })),
                                                         createdAt: sub.createdAt.toISOString(),
                                                         updatedAt: sub.updatedAt.toISOString()
                                                     }} />

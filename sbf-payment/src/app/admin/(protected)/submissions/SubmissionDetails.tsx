@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Shield, Globe } from "lucide-react";
 import type { SerializedSubmission } from "@/lib/types";
 
 export function SubmissionDetails({ submission }: { submission: SerializedSubmission }) {
@@ -23,7 +23,7 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                     Detay
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="text-[#152746]">Başvuru Detayları</DialogTitle>
                     <DialogDescription>
@@ -55,14 +55,45 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                         </div>
                     </div>
 
+                    {/* Dijital İmza / Döküman Onayları */}
+                    {submission.consents && submission.consents.length > 0 && (
+                        <div className="space-y-2 p-3 bg-emerald-50/50 rounded-md border border-emerald-200 text-sm">
+                            <h4 className="font-semibold text-emerald-800 border-b border-emerald-200 pb-1 mb-2 flex items-center gap-2">
+                                <Shield className="w-4 h-4" />
+                                Dijital İmza Kayıtları
+                            </h4>
+                            <div className="space-y-3">
+                                {submission.consents.map((consent, index) => (
+                                    <div key={consent.id} className="bg-white rounded-md p-3 border border-emerald-100">
+                                        <div className="font-medium text-emerald-700 mb-2">
+                                            {index + 1}. {consent.documentName}
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-1 text-xs">
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Globe className="w-3 h-3" />
+                                                <span>IP: <strong>{consent.ipAddress}</strong></span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <span>📅 Onay Tarihi: <strong>{new Date(consent.consentAt).toLocaleDateString('tr-TR')} {new Date(consent.consentAt).toLocaleTimeString('tr-TR')}</strong></span>
+                                            </div>
+                                            {consent.userAgent && (
+                                                <div className="text-gray-400 truncate mt-1" title={consent.userAgent}>
+                                                    🌐 {consent.userAgent.substring(0, 60)}...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Dinamik Alanlar */}
                     {Object.keys(extraData).length > 0 && (
                         <div className="space-y-2 p-3 bg-blue-50/50 rounded-md border border-blue-100 text-sm">
                             <h4 className="font-semibold text-[#152746] border-b border-blue-200 pb-1 mb-2">Form Yanıtları</h4>
                             <div className="grid grid-cols-1 gap-y-2">
                                 {Object.entries(extraData).map(([key, value]) => {
-                                    // Key'i (örn: "kac_yasindasin") daha düzgün göstermek mümkünse formField listesinden label aranabilir ama şu an key gösterelim
-                                    // Veya key'i capitalize yapalım.
                                     return (
                                         <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                             <span className="text-gray-500 font-medium capitalize">{key}:</span>

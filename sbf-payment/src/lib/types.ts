@@ -24,6 +24,15 @@ export interface FormField {
     createdAt: Date;
 }
 
+// Dijital imza / Döküman onayı
+export interface DocumentConsent {
+    id: string;
+    documentName: string;
+    ipAddress: string;
+    userAgent: string | null;
+    consentAt: Date | string;
+}
+
 // Başvuru bilgisi
 export interface Submission {
     id: string;
@@ -36,6 +45,7 @@ export interface Submission {
     extraData: string | null;
     status: 'pending' | 'approved' | 'rejected';
     notes: string | null;
+    consents?: DocumentConsent[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -52,6 +62,7 @@ export interface SerializedSubmission {
     extraData: string | null;
     status: string;
     notes: string | null;
+    consents?: DocumentConsent[];
     createdAt: string; // ISO string
     updatedAt: string; // ISO string
 }
@@ -61,3 +72,4 @@ export interface AuthState {
     success?: boolean;
     error?: string;
 }
+
