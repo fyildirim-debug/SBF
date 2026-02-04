@@ -8,7 +8,8 @@ import {
     FileText,
     LogOut,
     Menu,
-    FileCheck
+    FileCheck,
+    Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ export default async function AdminLayout({
                     <NavItem href="/admin/submissions" icon={<FileCheck />}>Ödeme Bildirimleri</NavItem>
                     <NavItem href="/admin/facilities" icon={<Building2 />}>Tesis Yönetimi</NavItem>
                     <NavItem href="/admin/forms" icon={<FileText />}>Form Ayarları</NavItem>
+                    <NavItem href="/admin/settings" icon={<Settings />}>Ayarlar</NavItem>
                 </nav>
 
                 <div className="p-4 border-t border-white/10 bg-[#0f1d36]">

@@ -35,7 +35,8 @@ interface PaymentFormClientProps {
 interface PaymentFormData {
     tcNo: string;
     fullName: string;
-    studentNo: string;
+    userType: "ogrenci" | "personel";
+    identityNo: string; // Öğrenci No veya Sicil No
     facilityId: string;
     receipt: FileList;
     [key: string]: string | FileList; // Dinamik alanlar için
@@ -72,6 +73,7 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
 
     const selectedFacilityId = watch("facilityId");
     const selectedFacility = facilities.find(f => f.id === selectedFacilityId);
+    const userType = watch("userType") || "ogrenci";
 
     // Form submit edildiğinde önce PDF onay modal'ını aç
     function onFormSubmit(data: PaymentFormData) {
@@ -92,7 +94,8 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
         // Sabit alanlar
         formData.append("tcNo", pendingFormData.tcNo);
         formData.append("fullName", pendingFormData.fullName);
-        formData.append("studentNo", pendingFormData.studentNo);
+        formData.append("userType", pendingFormData.userType);
+        formData.append("studentNo", pendingFormData.identityNo); // Backend uyumluluğu için studentNo olarak gönderiliyor
         formData.append("facilityId", pendingFormData.facilityId);
         if (pendingFormData.receipt[0]) {
             formData.append("receipt", pendingFormData.receipt[0]);
@@ -182,15 +185,46 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="studentNo" className="text-gray-700 font-medium">Öğrenci Numarası</Label>
-                        <Input
-                            id="studentNo"
-                            placeholder="Okul Numaranız"
-                            className="bg-white border-gray-300 focus:border-[#152746] focus:ring-[#152746] h-11"
-                            {...register("studentNo", { required: true })}
-                        />
-                        {errors.studentNo && <span className="text-sm text-red-500">Öğrenci No zorunludur</span>}
+                        <Label className="text-gray-700 font-medium">Kişi Tipi</Label>
+                        <div className="flex gap-6 py-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="ogrenci"
+                                    defaultChecked
+                                    className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
+                                    {...register("userType", { required: true })}
+                                />
+                                <span className="text-gray-700">Öğrenci</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="personel"
+                                    className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
+                                    {...register("userType", { required: true })}
+                                />
+                                <span className="text-gray-700">Personel</span>
+                            </label>
+                        </div>
                     </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="identityNo" className="text-gray-700 font-medium">
+                        {userType === "personel" ? "Sicil Numarası" : "Öğrenci Numarası"}
+                    </Label>
+                    <Input
+                        id="identityNo"
+                        placeholder={userType === "personel" ? "Örn: 95-25633" : "Öğrenci Numaranız"}
+                        className="bg-white border-gray-300 focus:border-[#152746] focus:ring-[#152746] h-11"
+                        {...register("identityNo", { required: true })}
+                    />
+                    {errors.identityNo && (
+                        <span className="text-sm text-red-500">
+                            {userType === "personel" ? "Sicil No zorunludur" : "Öğrenci No zorunludur"}
+                        </span>
+                    )}
                 </div>
 
                 <div className="space-y-2">

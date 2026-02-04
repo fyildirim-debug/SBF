@@ -69,3 +69,11 @@ model DocumentConsent {
   consentAt    DateTime   @default(now()) // Onay zamanı
 }
 
+// Site Ayarları (Başvuru Kuralları, Kullanım Şartları vb.)
+model SiteSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // JSON veya text
+  description String?
+  updatedAt   DateTime @updatedAt
+}
