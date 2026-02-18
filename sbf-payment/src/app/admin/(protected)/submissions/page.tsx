@@ -57,7 +57,7 @@ export default async function SubmissionsPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium">{sub.facility.name}</div>
-                                                <div className="text-xs font-semibold text-primary">{sub.facility.price} TL</div>
+                                                <div className="text-xs font-semibold text-primary">{sub.userType === "personel" ? sub.facility.staffPrice : sub.facility.studentPrice} TL</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <a

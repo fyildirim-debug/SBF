@@ -1,24 +1,48 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
+import { useState } from 'react';
 import { authenticate } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
-import { useEffect, useActionState } from 'react';
+import { MathCaptcha } from '@/app/components/MathCaptcha';
 
 export function LoginForm() {
-    const [state, dispatch] = useActionState(authenticate, undefined);
+    const [error, setError] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+    const [captchaValid, setCaptchaValid] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState('');
+    const [captchaAnswer, setCaptchaAnswer] = useState('');
 
-    useEffect(() => {
-        if (state?.success) {
-            window.location.href = '/admin';
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+
+        if (!captchaValid) {
+            setError('Lütfen güvenlik doğrulamasını tamamlayınız.');
+            return;
         }
-    }, [state]);
+
+        setPending(true);
+        setError(null);
+
+        const formEl = e.currentTarget;
+        const formData = new FormData(formEl);
+        formData.append('captchaToken', captchaToken);
+        formData.append('captchaAnswer', captchaAnswer);
+
+        const result = await authenticate(undefined, formData);
+
+        if (result?.success) {
+            window.location.href = '/admin';
+        } else {
+            setError(result?.error ?? 'Bir sorun oluştu.');
+            setPending(false);
+        }
+    }
 
     return (
-        <form action={dispatch} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
                 <Label htmlFor="email">E-posta Adresi</Label>
                 <Input
@@ -41,29 +65,34 @@ export function LoginForm() {
                     className="bg-white/50"
                 />
             </div>
-            <div
-                className="flex h-8 items-end space-x-1"
-                aria-live="polite"
-                aria-atomic="true"
+
+            {/* Matematik CAPTCHA */}
+            <MathCaptcha
+                onValidChange={(isValid, token, answer) => {
+                    setCaptchaValid(isValid);
+                    setCaptchaToken(token);
+                    setCaptchaAnswer(answer);
+                }}
+            />
+
+            {error && (
+                <div className="w-full p-2 text-sm text-red-500 bg-red-50 rounded flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <p>{error}</p>
+                </div>
+            )}
+
+            <Button
+                type="submit"
+                className={`w-full transition-all font-semibold
+                    ${captchaValid && !pending
+                        ? 'bg-[#152746] hover:bg-[#152746]/90 text-white cursor-pointer'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                disabled={pending || !captchaValid}
             >
-                {state?.error && (
-                    <div className="w-full p-2 text-sm text-red-500 bg-red-50 rounded flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        <p>{state.error}</p>
-                    </div>
-                )}
-            </div>
-            <LoginButton />
+                {pending ? 'Giriş Yapılıyor...' : captchaValid ? 'Giriş Yap' : '🔒 Güvenlik doğrulamasını tamamlayın'}
+            </Button>
         </form>
-    );
-}
-
-function LoginButton() {
-    const { pending } = useFormStatus();
-
-    return (
-        <Button className="w-full bg-[#152746] hover:bg-[#152746]/90 text-white" aria-disabled={pending} disabled={pending}>
-            {pending ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
-        </Button>
     );
 }

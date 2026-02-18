@@ -16,13 +16,40 @@ interface ConsentData {
 export async function submitPayment(formData: FormData) {
     const tcNo = formData.get("tcNo") as string;
     const fullName = formData.get("fullName") as string;
+    const email = formData.get("email") as string;
+    const address = formData.get("address") as string;
     const studentNo = formData.get("studentNo") as string;
+    const userType = (formData.get("userType") as string) || "ogrenci";
     const facilityId = formData.get("facilityId") as string;
     const receiptFile = formData.get("receipt") as File;
     const consentsJson = formData.get("consents") as string;
+    const captchaToken = formData.get("captchaToken") as string;
+    const captchaAnswer = formData.get("captchaAnswer") as string;
+
+    // CAPTCHA doğrulaması (server-side)
+    if (!captchaToken || !captchaAnswer) {
+        return { error: "Güvenlik doğrulaması eksik." };
+    }
+    try {
+        const decoded = Buffer.from(captchaToken, "base64").toString("utf-8");
+        const [expectedAnswer, tokenTimestamp] = decoded.split(":");
+        const currentTimestamp = Math.floor(Date.now() / 60000);
+        const tokenAge = currentTimestamp - parseInt(tokenTimestamp, 10);
+
+        // Token 5 dakikadan eski ise reddet (bot tekrar deneme koruması)
+        if (tokenAge > 5) {
+            return { error: "Güvenlik sorusu süresi doldu. Lütfen sayfayı yenileyiniz." };
+        }
+
+        if (parseInt(captchaAnswer, 10) !== parseInt(expectedAnswer, 10)) {
+            return { error: "Güvenlik doğrulaması hatalı. Lütfen matematik sorusunu tekrar çözünüz." };
+        }
+    } catch {
+        return { error: "Güvenlik doğrulaması geçersiz." };
+    }
 
     // Temel validasyon
-    if (!tcNo || !fullName || !studentNo || !facilityId || !receiptFile) {
+    if (!tcNo || !fullName || !email || !address || !studentNo || !facilityId || !receiptFile) {
         return { error: "Lütfen tüm alanları doldurunuz." };
     }
 
@@ -30,13 +57,22 @@ export async function submitPayment(formData: FormData) {
         return { error: "Geçersiz T.C. Kimlik No." };
     }
 
+    // E-posta format kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return { error: "Geçerli bir e-posta adresi giriniz." };
+    }
+
+
     // PDF onay kontrolü
     let consents: ConsentData[] = [];
     try {
         if (consentsJson) {
             consents = JSON.parse(consentsJson);
         }
-        if (consents.length < 2) {
+        // Aktif döküman sayısını kontrol et — ona göre consent zorunluluğu belirle
+        const activeDocCount = await prisma.consentDocument.count({ where: { isActive: true } });
+        if (activeDocCount > 0 && consents.length < activeDocCount) {
             return { error: "Lütfen tüm dökümanları onaylayınız." };
         }
     } catch {
@@ -66,7 +102,7 @@ export async function submitPayment(formData: FormData) {
     }
 
     // Sabit alanlar dışındaki verileri extraData olarak topla
-    const fixedKeys = ["tcNo", "fullName", "studentNo", "facilityId", "receipt", "consents"];
+    const fixedKeys = ["tcNo", "fullName", "email", "address", "studentNo", "facilityId", "receipt", "consents", "captchaToken", "captchaAnswer", "userType"];
     const extraDataObj: Record<string, string> = {};
 
     formData.forEach((value, key) => {
@@ -83,7 +119,10 @@ export async function submitPayment(formData: FormData) {
             data: {
                 tcNo,
                 fullName,
+                email,
+                address,
                 studentNo,
+                userType,
                 facilityId,
                 receiptPath,
                 extraData,

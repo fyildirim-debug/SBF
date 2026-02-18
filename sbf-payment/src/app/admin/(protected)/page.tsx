@@ -80,7 +80,7 @@ export default async function AdminDashboard() {
                                                 <div className="text-xs text-gray-500">{sub.studentNo}</div>
                                             </td>
                                             <td className="p-4 align-middle text-gray-700">{sub.facility.name}</td>
-                                            <td className="p-4 align-middle text-gray-700">{sub.facility.price} TL</td>
+                                            <td className="p-4 align-middle text-gray-700">{sub.userType === "personel" ? sub.facility.staffPrice : sub.facility.studentPrice} TL</td>
                                             <td className="p-4 align-middle">
                                                 <StatusBadge status={sub.status} />
                                             </td>

@@ -20,13 +20,14 @@ model User {
 }
 
 model Facility {
-  id          String       @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  isActive    Boolean      @default(true)
-  submissions Submission[]
-  createdAt   DateTime     @default(now())
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  studentPrice Float        @default(0) // Öğrenci ücreti
+  staffPrice   Float        @default(0) // Personel ücreti
+  isActive     Boolean      @default(true)
+  submissions  Submission[]
+  createdAt    DateTime     @default(now())
 }
 
 model FormField {
@@ -46,7 +47,10 @@ model Submission {
   id          String   @id @default(cuid())
   tcNo        String
   fullName    String
+  email       String
+  address     String
   studentNo   String
+  userType    String   @default("ogrenci") // ogrenci veya personel
   facilityId  String
   facility    Facility @relation(fields: [facilityId], references: [id])
   receiptPath String   // Dekont dosya yolu
@@ -76,4 +80,16 @@ model SiteSettings {
   value       String   // JSON veya text
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+// Onay PDF Dökümanları (Admin'den yönetilebilir)
+model ConsentDocument {
+  id        String   @id @default(cuid())
+  name      String   // Döküman adı (onay kaydında kullanılır)
+  title     String   // Kullanıcıya gösterilen başlık
+  filePath  String   // /documents/... yolu
+  order     Int      @default(0) // Gösterim sırası
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

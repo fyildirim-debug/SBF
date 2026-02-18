@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { PDFConsentModal } from "./PDFConsentModal";
+import { MathCaptcha } from "./MathCaptcha";
 
 interface Facility {
     id: string;
     name: string;
-    price: number;
+    studentPrice: number;
+    staffPrice: number;
 }
 
 interface FormField {
@@ -29,12 +31,15 @@ interface FormField {
 interface PaymentFormClientProps {
     facilities: Facility[];
     extraFields: FormField[];
+    consentDocuments: { name: string; title: string; path: string }[];
 }
 
 // Form veri tipi
 interface PaymentFormData {
     tcNo: string;
     fullName: string;
+    email: string;
+    address: string;
     userType: "ogrenci" | "personel";
     identityNo: string; // Öğrenci No veya Sicil No
     facilityId: string;
@@ -50,56 +55,64 @@ interface ConsentData {
     userAgent: string;
 }
 
-// Onaylanacak PDF dökümanları
-const PDF_DOCUMENTS = [
-    {
-        name: "FITNESS SALONU ÜYELİK BAŞVURUSU",
-        title: "Fitness Salonu Üyelik Başvurusu",
-        path: "/documents/FITNESS SALONU ÜYELİK BAŞVURUSU.pdf",
-    },
-    {
-        name: "FITNESS SALONU KULLANIM KURALLARI",
-        title: "Fitness Salonu Kullanım Kuralları",
-        path: "/documents/FITNESS SALONU KULLANIM KURALLARI.pdf",
-    },
-];
 
-export function PaymentFormClient({ facilities, extraFields }: PaymentFormClientProps) {
+export function PaymentFormClient({ facilities, extraFields, consentDocuments }: PaymentFormClientProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitResult, setSubmitResult] = useState<{ success?: boolean; error?: string } | null>(null);
     const [showConsentModal, setShowConsentModal] = useState(false);
     const [pendingFormData, setPendingFormData] = useState<PaymentFormData | null>(null);
+    const [captchaValid, setCaptchaValid] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState("");
+    const [captchaAnswer, setCaptchaAnswer] = useState("");
     const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<PaymentFormData>();
 
     const selectedFacilityId = watch("facilityId");
     const selectedFacility = facilities.find(f => f.id === selectedFacilityId);
     const userType = watch("userType") || "ogrenci";
 
-    // Form submit edildiğinde önce PDF onay modal'ını aç
+    // Form submit edildiğinde önce CAPTCHA kontrolü yap, sonra PDF onay modal'ını aç
     function onFormSubmit(data: PaymentFormData) {
+        if (!captchaValid) {
+            setSubmitResult({ error: "Lütfen güvenlik doğrulamasını doğru şekilde tamamlayınız." });
+            return;
+        }
+        setSubmitResult(null);
         setPendingFormData(data);
+
+        // DB'de onay dökümanı yoksa modal'ı atla, direkt gönder
+        if (consentDocuments.length === 0) {
+            handleConsentComplete([], data);
+            return;
+        }
         setShowConsentModal(true);
     }
 
     // PDF onayları tamamlandığında formu gönder
-    async function handleConsentComplete(consents: ConsentData[]) {
+    async function handleConsentComplete(consents: ConsentData[], overrideData?: PaymentFormData) {
         setShowConsentModal(false);
 
-        if (!pendingFormData) return;
+        const formDataSource = overrideData || pendingFormData;
+        if (!formDataSource) return;
 
         setIsSubmitting(true);
         setSubmitResult(null);
 
         const formData = new FormData();
         // Sabit alanlar
-        formData.append("tcNo", pendingFormData.tcNo);
-        formData.append("fullName", pendingFormData.fullName);
-        formData.append("userType", pendingFormData.userType);
-        formData.append("studentNo", pendingFormData.identityNo); // Backend uyumluluğu için studentNo olarak gönderiliyor
-        formData.append("facilityId", pendingFormData.facilityId);
-        if (pendingFormData.receipt[0]) {
-            formData.append("receipt", pendingFormData.receipt[0]);
+        formData.append("tcNo", formDataSource.tcNo);
+        formData.append("fullName", formDataSource.fullName);
+        formData.append("email", formDataSource.email);
+        formData.append("address", formDataSource.address);
+        formData.append("userType", formDataSource.userType);
+        formData.append("studentNo", formDataSource.identityNo);
+        formData.append("facilityId", formDataSource.facilityId);
+        if (formDataSource.receipt[0]) {
+            formData.append("receipt", formDataSource.receipt[0]);
         }
+
+        // CAPTCHA doğrulama verilerini ekle
+        formData.append("captchaToken", captchaToken);
+        formData.append("captchaAnswer", captchaAnswer);
 
         // Consent verilerini JSON olarak ekle
         formData.append("consents", JSON.stringify(consents));
@@ -107,7 +120,7 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
         // Dinamik alanları da ekle
         if (extraFields) {
             extraFields.forEach(field => {
-                const fieldValue = pendingFormData[field.name];
+                const fieldValue = formDataSource[field.name];
                 if (fieldValue && typeof fieldValue === 'string') {
                     formData.append(field.name, fieldValue);
                 }
@@ -167,7 +180,7 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                 isOpen={showConsentModal}
                 onComplete={handleConsentComplete}
                 onClose={handleConsentClose}
-                documents={PDF_DOCUMENTS}
+                documents={consentDocuments}
             />
 
             <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
@@ -238,6 +251,33 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                     {errors.fullName && <span className="text-sm text-red-500">Ad Soyad zorunludur</span>}
                 </div>
 
+                <div className="space-y-2">
+                    <Label htmlFor="email" className="text-gray-700 font-medium">E-posta Adresi</Label>
+                    <Input
+                        id="email"
+                        type="email"
+                        placeholder="ornek@ankara.edu.tr"
+                        className="bg-white border-gray-300 focus:border-[#152746] focus:ring-[#152746] h-11"
+                        {...register("email", {
+                            required: true,
+                            pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Geçerli bir e-posta giriniz" }
+                        })}
+                    />
+                    {errors.email && <span className="text-sm text-red-500">{errors.email.message || "E-posta zorunludur"}</span>}
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="address" className="text-gray-700 font-medium">Adres</Label>
+                    <textarea
+                        id="address"
+                        rows={3}
+                        placeholder="Açık adresinizi giriniz"
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#152746] focus:ring-1 focus:ring-[#152746] resize-none"
+                        {...register("address", { required: true })}
+                    />
+                    {errors.address && <span className="text-sm text-red-500">Adres zorunludur</span>}
+                </div>
+
                 {/* Dinamik Alanlar */}
                 {extraFields && extraFields.map((field) => (
                     <div key={field.id} className="space-y-2">
@@ -290,7 +330,7 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                         <option value="">Seçiniz...</option>
                         {facilities.map((f) => (
                             <option key={f.id} value={f.id}>
-                                {f.name} - {f.price} TL
+                                {f.name} - {userType === "personel" ? f.staffPrice : f.studentPrice} TL
                             </option>
                         ))}
                     </Select>
@@ -307,7 +347,7 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                         >
                             <div className="flex justify-between items-center text-[#152746] font-medium">
                                 <span>Ödenecek Tutar:</span>
-                                <span className="text-xl font-bold">{selectedFacility.price} TL</span>
+                                <span className="text-xl font-bold">{userType === "personel" ? selectedFacility.staffPrice : selectedFacility.studentPrice} TL</span>
                             </div>
                         </motion.div>
                     )}
@@ -315,7 +355,11 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
 
                 <div className="space-y-2">
                     <Label htmlFor="receipt" className="text-gray-700 font-medium">Dekont Yükle (PDF veya Fotoğraf)</Label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 hover:bg-gray-50 hover:border-[#152746]/50 transition-colors text-center cursor-pointer relative bg-white">
+                    <div className={`border-2 border-dashed rounded-lg p-8 transition-colors text-center cursor-pointer relative
+                        ${watch("receipt")?.[0]
+                            ? "border-green-400 bg-green-50"
+                            : "border-gray-300 bg-white hover:bg-gray-50 hover:border-[#152746]/50"
+                        }`}>
                         <input
                             type="file"
                             id="receipt"
@@ -323,13 +367,38 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             {...register("receipt", { required: true })}
                         />
-                        <div className="flex flex-col items-center gap-2 text-gray-500 pointer-events-none">
-                            <Upload className="w-10 h-10 text-[#152746]/50" />
-                            <span className="text-sm font-medium">Dosya seçmek için tıklayın veya sürükleyin</span>
-                        </div>
+                        {watch("receipt")?.[0] ? (
+                            <div className="flex flex-col items-center gap-2 pointer-events-none">
+                                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                                    <CheckCircle2 className="w-7 h-7 text-green-600" />
+                                </div>
+                                <span className="text-sm font-semibold text-green-700 break-all max-w-xs">
+                                    {watch("receipt")[0].name}
+                                </span>
+                                <span className="text-xs text-green-600">
+                                    {(watch("receipt")[0].size / 1024).toFixed(1)} KB · Değiştirmek için tıklayın
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-500 pointer-events-none">
+                                <Upload className="w-10 h-10 text-[#152746]/50" />
+                                <span className="text-sm font-medium">Dosya seçmek için tıklayın veya sürükleyin</span>
+                                <span className="text-xs text-gray-400">PDF, JPG, PNG desteklenir</span>
+                            </div>
+                        )}
                     </div>
                     {errors.receipt && <span className="text-sm text-red-500">Dekont yüklemek zorunludur</span>}
+
                 </div>
+
+                {/* Matematik CAPTCHA */}
+                <MathCaptcha
+                    onValidChange={(isValid, token, answer) => {
+                        setCaptchaValid(isValid);
+                        setCaptchaToken(token);
+                        setCaptchaAnswer(answer);
+                    }}
+                />
 
                 {submitResult?.error && (
                     <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm flex items-center gap-2 border border-red-100">
@@ -340,10 +409,14 @@ export function PaymentFormClient({ facilities, extraFields }: PaymentFormClient
 
                 <Button
                     type="submit"
-                    className="w-full text-lg h-12 bg-[#152746] hover:bg-[#152746]/90 text-white transition-all font-semibold shadow-md hover:shadow-lg"
-                    disabled={isSubmitting}
+                    className={`w-full text-lg h-12 transition-all font-semibold shadow-md
+                        ${captchaValid && !isSubmitting
+                            ? "bg-[#152746] hover:bg-[#152746]/90 text-white hover:shadow-lg cursor-pointer"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                        }`}
+                    disabled={isSubmitting || !captchaValid}
                 >
-                    {isSubmitting ? "Gönderiliyor..." : "Ödeme Bildirimini Gönder"}
+                    {isSubmitting ? "Gönderiliyor..." : captchaValid ? "Ödeme Bildirimini Gönder" : "🔒 Güvenlik doğrulamasını tamamlayın"}
                 </Button>
             </form>
         </>

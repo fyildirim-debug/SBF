@@ -4,16 +4,14 @@ import { PaymentFormClient } from "./components/PaymentFormClient";
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const [facilities, formFields] = await Promise.all([
+  const [facilities, formFields, consentDocs] = await Promise.all([
     prisma.facility.findMany({ where: { isActive: true } }),
     prisma.formField.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
+    prisma.consentDocument.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
   ]);
 
-  // Eğer tesis yoksa örnek tesis oluştur (Geliştirme aşaması kolaylığı için)
-  if (facilities.length === 0) {
-    // Burada side-effect yapmak ideal değil ama demo için kullanışlı
-    // Kullanıcıya boş liste dönmek yerine bir uyarı da olabilir.
-  }
+  // DB'den aktif dökümanları al (boşsa boş dizi — modal açılmaz)
+  const pdfDocuments = consentDocs.map(d => ({ name: d.name, title: d.title, path: d.filePath }));
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 relative bg-gray-50 overflow-hidden">
@@ -38,11 +36,11 @@ export default async function Home() {
           </div>
         </div>
 
-        <PaymentFormClient facilities={facilities} extraFields={formFields} />
+        <PaymentFormClient facilities={facilities} extraFields={formFields} consentDocuments={pdfDocuments} />
       </div>
 
       <footer className="mt-8 text-sm text-gray-400 text-center">
-        &copy; {new Date().getFullYear()} Ankara Üniversitesi Bilgi İşlem Daire Başkanlığı
+        &copy; {new Date().getFullYear()} Ankara Üniversitesi SKS Bilgi İşlem Daire Başkanlığı
       </footer>
     </div>
   );

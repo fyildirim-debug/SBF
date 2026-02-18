@@ -43,6 +43,30 @@ export async function authenticate(
     prevState: AuthState | undefined,
     formData: FormData,
 ): Promise<AuthState> {
+
+    // CAPTCHA doğrulaması (server-side)
+    const captchaToken = formData.get('captchaToken') as string;
+    const captchaAnswer = formData.get('captchaAnswer') as string;
+
+    if (!captchaToken || !captchaAnswer) {
+        return { error: 'Güvenlik doğrulaması eksik.' };
+    }
+    try {
+        const decoded = Buffer.from(captchaToken, 'base64').toString('utf-8');
+        const [expectedAnswer, tokenTimestamp] = decoded.split(':');
+        const currentTimestamp = Math.floor(Date.now() / 60000);
+        const tokenAge = currentTimestamp - parseInt(tokenTimestamp, 10);
+
+        if (tokenAge > 5) {
+            return { error: 'Güvenlik sorusu süresi doldu. Lütfen sayfayı yenileyiniz.' };
+        }
+        if (parseInt(captchaAnswer, 10) !== parseInt(expectedAnswer, 10)) {
+            return { error: 'Güvenlik doğrulaması hatalı.' };
+        }
+    } catch {
+        return { error: 'Güvenlik doğrulaması geçersiz.' };
+    }
+
     try {
         await signIn('credentials', {
             email: formData.get('email'),

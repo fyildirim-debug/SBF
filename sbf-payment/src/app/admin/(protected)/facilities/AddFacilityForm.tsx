@@ -38,9 +38,15 @@ export function AddFacilityForm() {
                 <Input id="name" name="name" placeholder="Örn: Kapalı Yüzme Havuzu" required />
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="price">Ücret (TL)</Label>
-                <Input id="price" name="price" type="number" min="0" step="0.5" placeholder="0.00" required />
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                    <Label htmlFor="studentPrice">Öğrenci Ücreti (TL)</Label>
+                    <Input id="studentPrice" name="studentPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="staffPrice">Personel Ücreti (TL)</Label>
+                    <Input id="staffPrice" name="staffPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                </div>
             </div>
 
             <div className="space-y-2">

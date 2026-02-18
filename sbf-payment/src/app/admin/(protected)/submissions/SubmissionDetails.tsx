@@ -23,7 +23,7 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                     Detay
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg text-left">
                 <DialogHeader>
                     <DialogTitle className="text-[#152746]">Başvuru Detayları</DialogTitle>
                     <DialogDescription>
@@ -33,7 +33,7 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
 
                 <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
                     {/* Temel Bilgiler */}
-                    <div className="space-y-2 p-3 bg-gray-50 rounded-md border text-sm">
+                    <div className="space-y-2 p-3 bg-gray-50 rounded-md border text-sm text-left">
                         <h4 className="font-semibold text-[#152746] border-b pb-1 mb-2">Temel Bilgiler</h4>
                         <div className="grid grid-cols-1 gap-y-2">
                             <div className="flex justify-between">
@@ -41,12 +41,22 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                                 <span className="font-medium text-gray-900">{submission.tcNo}</span>
                             </div>
                             <div className="flex justify-between">
+                                <span className="text-gray-500">E-posta:</span>
+                                <span className="font-medium text-gray-900">{submission.email}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-4">
+                                <span className="text-gray-500 shrink-0">Adres:</span>
+                                <span className="font-medium text-gray-900 text-right break-words max-w-[65%]">{submission.address}</span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span className="text-gray-500">Tesis:</span>
                                 <span className="font-medium text-gray-900">{submission.facility.name}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Tutar:</span>
-                                <span className="font-medium text-gray-900">{submission.facility.price} TL</span>
+                                <span className="font-medium text-gray-900">
+                                    {submission.userType === "personel" ? submission.facility.staffPrice : submission.facility.studentPrice} TL
+                                </span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Tarih:</span>

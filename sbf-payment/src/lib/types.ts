@@ -5,7 +5,8 @@ export interface Facility {
     id: string;
     name: string;
     description: string | null;
-    price: number;
+    studentPrice: number;
+    staffPrice: number;
     isActive: boolean;
     createdAt: Date;
 }
@@ -38,7 +39,10 @@ export interface Submission {
     id: string;
     tcNo: string;
     fullName: string;
+    email: string;
+    address: string;
     studentNo: string;
+    userType: string;
     facilityId: string;
     facility: Facility;
     receiptPath: string;
@@ -55,7 +59,10 @@ export interface SerializedSubmission {
     id: string;
     tcNo: string;
     fullName: string;
+    email: string;
+    address: string;
     studentNo: string;
+    userType: string;
     facilityId: string;
     facility: Facility;
     receiptPath: string;
