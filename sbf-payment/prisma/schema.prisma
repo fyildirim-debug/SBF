@@ -20,14 +20,16 @@ model User {
 }
 
 model Facility {
-  id           String       @id @default(cuid())
-  name         String
-  description  String?
-  studentPrice Float        @default(0) // Öğrenci ücreti
-  staffPrice   Float        @default(0) // Personel ücreti
-  isActive     Boolean      @default(true)
-  submissions  Submission[]
-  createdAt    DateTime     @default(now())
+  id                  String       @id @default(cuid())
+  name                String
+  description         String?
+  sbfStudentPrice     Float        @default(0) // SBF Öğrenci ücreti
+  externalStudentPrice Float       @default(0) // Kurum İçi Öğrenci ücreti
+  academicStaffPrice  Float        @default(0) // Kurum İçi Akademik Personel ücreti
+  adminStaffPrice     Float        @default(0) // Kurum İçi İdari Personel ücreti
+  isActive            Boolean      @default(true)
+  submissions         Submission[]
+  createdAt           DateTime     @default(now())
 }
 
 model FormField {

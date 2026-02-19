@@ -49,13 +49,29 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                                 <span className="font-medium text-gray-900 text-right break-words max-w-[65%]">{submission.address}</span>
                             </div>
                             <div className="flex justify-between">
+                                <span className="text-gray-500">Kişi Tipi:</span>
+                                <span className="font-medium text-gray-900">
+                                    {submission.userType === "sbf_ogrenci" ? "SBF Öğrenci" :
+                                     submission.userType === "kurum_ogrenci" ? "Kurum İçi Öğrenci" :
+                                     submission.userType === "akademik_personel" ? "Akademik Personel" :
+                                     submission.userType === "idari_personel" ? "İdari Personel" :
+                                     submission.userType === "ogrenci" ? "Öğrenci" :
+                                     submission.userType === "personel" ? "Personel" : submission.userType}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span className="text-gray-500">Tesis:</span>
                                 <span className="font-medium text-gray-900">{submission.facility.name}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Tutar:</span>
                                 <span className="font-medium text-gray-900">
-                                    {submission.userType === "personel" ? submission.facility.staffPrice : submission.facility.studentPrice} TL
+                                    {submission.userType === "sbf_ogrenci" ? submission.facility.sbfStudentPrice :
+                                     submission.userType === "kurum_ogrenci" ? submission.facility.externalStudentPrice :
+                                     submission.userType === "akademik_personel" ? submission.facility.academicStaffPrice :
+                                     submission.userType === "idari_personel" ? submission.facility.adminStaffPrice :
+                                     submission.userType === "personel" ? (submission.facility as Record<string, unknown>).staffPrice ?? 0 :
+                                     (submission.facility as Record<string, unknown>).studentPrice ?? submission.facility.sbfStudentPrice} TL
                                 </span>
                             </div>
                             <div className="flex justify-between">

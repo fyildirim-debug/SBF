@@ -15,8 +15,10 @@ import { MathCaptcha } from "./MathCaptcha";
 interface Facility {
     id: string;
     name: string;
-    studentPrice: number;
-    staffPrice: number;
+    sbfStudentPrice: number;
+    externalStudentPrice: number;
+    academicStaffPrice: number;
+    adminStaffPrice: number;
 }
 
 interface FormField {
@@ -40,7 +42,7 @@ interface PaymentFormData {
     fullName: string;
     email: string;
     address: string;
-    userType: "ogrenci" | "personel";
+    userType: "sbf_ogrenci" | "kurum_ogrenci" | "akademik_personel" | "idari_personel";
     identityNo: string; // Öğrenci No veya Sicil No
     facilityId: string;
     receipt: FileList;
@@ -68,7 +70,18 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
 
     const selectedFacilityId = watch("facilityId");
     const selectedFacility = facilities.find(f => f.id === selectedFacilityId);
-    const userType = watch("userType") || "ogrenci";
+    const userType = watch("userType") || "sbf_ogrenci";
+
+    // Kullanıcı tipine göre fiyat hesapla
+    function getPrice(facility: Facility, type: string): number {
+        switch (type) {
+            case "sbf_ogrenci": return facility.sbfStudentPrice;
+            case "kurum_ogrenci": return facility.externalStudentPrice;
+            case "akademik_personel": return facility.academicStaffPrice;
+            case "idari_personel": return facility.adminStaffPrice;
+            default: return facility.sbfStudentPrice;
+        }
+    }
 
     // Form submit edildiğinde önce CAPTCHA kontrolü yap, sonra PDF onay modal'ını aç
     function onFormSubmit(data: PaymentFormData) {
@@ -199,25 +212,43 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
 
                     <div className="space-y-2">
                         <Label className="text-gray-700 font-medium">Kişi Tipi</Label>
-                        <div className="flex gap-6 py-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="radio"
-                                    value="ogrenci"
+                                    value="sbf_ogrenci"
                                     defaultChecked
                                     className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
                                     {...register("userType", { required: true })}
                                 />
-                                <span className="text-gray-700">Öğrenci</span>
+                                <span className="text-gray-700 text-sm">SBF Öğrenci</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="radio"
-                                    value="personel"
+                                    value="kurum_ogrenci"
                                     className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
                                     {...register("userType", { required: true })}
                                 />
-                                <span className="text-gray-700">Personel</span>
+                                <span className="text-gray-700 text-sm">Kurum İçi Öğrenci</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="akademik_personel"
+                                    className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
+                                    {...register("userType", { required: true })}
+                                />
+                                <span className="text-gray-700 text-sm">Akademik Personel</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    value="idari_personel"
+                                    className="w-4 h-4 text-[#152746] border-gray-300 focus:ring-[#152746]"
+                                    {...register("userType", { required: true })}
+                                />
+                                <span className="text-gray-700 text-sm">İdari Personel</span>
                             </label>
                         </div>
                     </div>
@@ -225,17 +256,17 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
 
                 <div className="space-y-2">
                     <Label htmlFor="identityNo" className="text-gray-700 font-medium">
-                        {userType === "personel" ? "Sicil Numarası" : "Öğrenci Numarası"}
+                        {userType === "akademik_personel" || userType === "idari_personel" ? "Sicil Numarası" : "Öğrenci Numarası"}
                     </Label>
                     <Input
                         id="identityNo"
-                        placeholder={userType === "personel" ? "Örn: 95-25633" : "Öğrenci Numaranız"}
+                        placeholder={userType === "akademik_personel" || userType === "idari_personel" ? "Örn: 95-25633" : "Öğrenci Numaranız"}
                         className="bg-white border-gray-300 focus:border-[#152746] focus:ring-[#152746] h-11"
                         {...register("identityNo", { required: true })}
                     />
                     {errors.identityNo && (
                         <span className="text-sm text-red-500">
-                            {userType === "personel" ? "Sicil No zorunludur" : "Öğrenci No zorunludur"}
+                            {userType === "akademik_personel" || userType === "idari_personel" ? "Sicil No zorunludur" : "Öğrenci No zorunludur"}
                         </span>
                     )}
                 </div>
@@ -330,7 +361,7 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
                         <option value="">Seçiniz...</option>
                         {facilities.map((f) => (
                             <option key={f.id} value={f.id}>
-                                {f.name} - {userType === "personel" ? f.staffPrice : f.studentPrice} TL
+                                {f.name} - {getPrice(f, userType)} TL
                             </option>
                         ))}
                     </Select>
@@ -347,7 +378,7 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
                         >
                             <div className="flex justify-between items-center text-[#152746] font-medium">
                                 <span>Ödenecek Tutar:</span>
-                                <span className="text-xl font-bold">{userType === "personel" ? selectedFacility.staffPrice : selectedFacility.studentPrice} TL</span>
+                                <span className="text-xl font-bold">{getPrice(selectedFacility, userType)} TL</span>
                             </div>
                         </motion.div>
                     )}

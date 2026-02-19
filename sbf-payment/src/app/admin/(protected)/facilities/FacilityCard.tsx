@@ -11,8 +11,10 @@ interface Facility {
     id: string;
     name: string;
     description: string | null;
-    studentPrice: number;
-    staffPrice: number;
+    sbfStudentPrice: number;
+    externalStudentPrice: number;
+    academicStaffPrice: number;
+    adminStaffPrice: number;
     isActive: boolean;
 }
 
@@ -23,15 +25,19 @@ export function FacilityCard({ facility }: { facility: Facility }) {
 
     // Düzenleme formu
     const [name, setName] = useState(facility.name);
-    const [studentPrice, setStudentPrice] = useState(facility.studentPrice.toString());
-    const [staffPrice, setStaffPrice] = useState(facility.staffPrice.toString());
+    const [sbfStudentPrice, setSbfStudentPrice] = useState(facility.sbfStudentPrice.toString());
+    const [externalStudentPrice, setExternalStudentPrice] = useState(facility.externalStudentPrice.toString());
+    const [academicStaffPrice, setAcademicStaffPrice] = useState(facility.academicStaffPrice.toString());
+    const [adminStaffPrice, setAdminStaffPrice] = useState(facility.adminStaffPrice.toString());
     const [description, setDescription] = useState(facility.description || "");
 
     function handleSave() {
         const formData = new FormData();
         formData.set("name", name);
-        formData.set("studentPrice", studentPrice);
-        formData.set("staffPrice", staffPrice);
+        formData.set("sbfStudentPrice", sbfStudentPrice);
+        formData.set("externalStudentPrice", externalStudentPrice);
+        formData.set("academicStaffPrice", academicStaffPrice);
+        formData.set("adminStaffPrice", adminStaffPrice);
         formData.set("description", description);
         formData.set("isActive", facility.isActive.toString());
 
@@ -49,8 +55,10 @@ export function FacilityCard({ facility }: { facility: Facility }) {
     function handleToggleActive() {
         const formData = new FormData();
         formData.set("name", facility.name);
-        formData.set("studentPrice", facility.studentPrice.toString());
-        formData.set("staffPrice", facility.staffPrice.toString());
+        formData.set("sbfStudentPrice", facility.sbfStudentPrice.toString());
+        formData.set("externalStudentPrice", facility.externalStudentPrice.toString());
+        formData.set("academicStaffPrice", facility.academicStaffPrice.toString());
+        formData.set("adminStaffPrice", facility.adminStaffPrice.toString());
         formData.set("description", facility.description || "");
         formData.set("isActive", (!facility.isActive).toString());
 
@@ -84,12 +92,20 @@ export function FacilityCard({ facility }: { facility: Facility }) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">Öğrenci Ücreti (TL)</Label>
-                        <Input type="number" min="0" step="0.5" value={studentPrice} onChange={e => setStudentPrice(e.target.value)} />
+                        <Label className="text-xs text-gray-500">SBF Öğrenci (TL)</Label>
+                        <Input type="number" min="0" step="0.5" value={sbfStudentPrice} onChange={e => setSbfStudentPrice(e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">Personel Ücreti (TL)</Label>
-                        <Input type="number" min="0" step="0.5" value={staffPrice} onChange={e => setStaffPrice(e.target.value)} />
+                        <Label className="text-xs text-gray-500">Kurum İçi Öğrenci (TL)</Label>
+                        <Input type="number" min="0" step="0.5" value={externalStudentPrice} onChange={e => setExternalStudentPrice(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs text-gray-500">Akademik Personel (TL)</Label>
+                        <Input type="number" min="0" step="0.5" value={academicStaffPrice} onChange={e => setAcademicStaffPrice(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs text-gray-500">İdari Personel (TL)</Label>
+                        <Input type="number" min="0" step="0.5" value={adminStaffPrice} onChange={e => setAdminStaffPrice(e.target.value)} />
                     </div>
                 </div>
                 <div className="space-y-1">
@@ -117,12 +133,18 @@ export function FacilityCard({ facility }: { facility: Facility }) {
                     {facility.description && (
                         <p className="text-sm text-muted-foreground">{facility.description}</p>
                     )}
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Öğrenci: {facility.studentPrice} TL
+                            SBF Öğr: {facility.sbfStudentPrice} TL
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
+                            Kurum Öğr: {facility.externalStudentPrice} TL
                         </span>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            Personel: {facility.staffPrice} TL
+                            Akademik: {facility.academicStaffPrice} TL
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            İdari: {facility.adminStaffPrice} TL
                         </span>
                         {!facility.isActive && (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">

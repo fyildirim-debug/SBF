@@ -1,12 +1,24 @@
 // Ortak tip tanımları
 
+// Kullanıcı tipleri
+export type UserType = "sbf_ogrenci" | "kurum_ogrenci" | "akademik_personel" | "idari_personel";
+
+export const USER_TYPE_LABELS: Record<UserType, string> = {
+    sbf_ogrenci: "Spor Bilimleri Fakültesi Öğrenci",
+    kurum_ogrenci: "Kurum İçi Öğrenci",
+    akademik_personel: "Kurum İçi Akademik Personel",
+    idari_personel: "Kurum İçi İdari Personel",
+};
+
 // Tesis bilgileri
 export interface Facility {
     id: string;
     name: string;
     description: string | null;
-    studentPrice: number;
-    staffPrice: number;
+    sbfStudentPrice: number;
+    externalStudentPrice: number;
+    academicStaffPrice: number;
+    adminStaffPrice: number;
     isActive: boolean;
     createdAt: Date;
 }

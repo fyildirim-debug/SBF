@@ -57,7 +57,20 @@ export default async function SubmissionsPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium">{sub.facility.name}</div>
-                                                <div className="text-xs font-semibold text-primary">{sub.userType === "personel" ? sub.facility.staffPrice : sub.facility.studentPrice} TL</div>
+                                                <div className="text-xs font-semibold text-primary">
+                                                    {sub.userType === "sbf_ogrenci" ? sub.facility.sbfStudentPrice :
+                                                     sub.userType === "kurum_ogrenci" ? sub.facility.externalStudentPrice :
+                                                     sub.userType === "akademik_personel" ? sub.facility.academicStaffPrice :
+                                                     sub.userType === "idari_personel" ? sub.facility.adminStaffPrice :
+                                                     sub.facility.sbfStudentPrice} TL
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {sub.userType === "sbf_ogrenci" ? "SBF Öğrenci" :
+                                                     sub.userType === "kurum_ogrenci" ? "Kurum İçi Öğrenci" :
+                                                     sub.userType === "akademik_personel" ? "Akademik Personel" :
+                                                     sub.userType === "idari_personel" ? "İdari Personel" :
+                                                     sub.userType === "ogrenci" ? "Öğrenci" : "Personel"}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <a

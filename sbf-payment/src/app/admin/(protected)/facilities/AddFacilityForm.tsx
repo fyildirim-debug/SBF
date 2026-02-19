@@ -40,12 +40,20 @@ export function AddFacilityForm() {
 
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                    <Label htmlFor="studentPrice">Öğrenci Ücreti (TL)</Label>
-                    <Input id="studentPrice" name="studentPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                    <Label htmlFor="sbfStudentPrice">SBF Öğrenci (TL)</Label>
+                    <Input id="sbfStudentPrice" name="sbfStudentPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="staffPrice">Personel Ücreti (TL)</Label>
-                    <Input id="staffPrice" name="staffPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                    <Label htmlFor="externalStudentPrice">Kurum İçi Öğrenci (TL)</Label>
+                    <Input id="externalStudentPrice" name="externalStudentPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="academicStaffPrice">Akademik Personel (TL)</Label>
+                    <Input id="academicStaffPrice" name="academicStaffPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="adminStaffPrice">İdari Personel (TL)</Label>
+                    <Input id="adminStaffPrice" name="adminStaffPrice" type="number" min="0" step="0.5" placeholder="0.00" required />
                 </div>
             </div>
 

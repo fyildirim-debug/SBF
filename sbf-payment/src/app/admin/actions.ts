@@ -8,17 +8,19 @@ import bcrypt from "bcryptjs";
 
 export async function addFacility(formData: FormData) {
     const name = formData.get("name") as string;
-    const studentPrice = parseFloat(formData.get("studentPrice") as string);
-    const staffPrice = parseFloat(formData.get("staffPrice") as string);
+    const sbfStudentPrice = parseFloat(formData.get("sbfStudentPrice") as string);
+    const externalStudentPrice = parseFloat(formData.get("externalStudentPrice") as string);
+    const academicStaffPrice = parseFloat(formData.get("academicStaffPrice") as string);
+    const adminStaffPrice = parseFloat(formData.get("adminStaffPrice") as string);
     const description = formData.get("description") as string;
 
-    if (!name || isNaN(studentPrice) || isNaN(staffPrice)) {
+    if (!name || isNaN(sbfStudentPrice) || isNaN(externalStudentPrice) || isNaN(academicStaffPrice) || isNaN(adminStaffPrice)) {
         return { error: "Geçersiz veriler." };
     }
 
     try {
         await prisma.facility.create({
-            data: { name, studentPrice, staffPrice, description },
+            data: { name, sbfStudentPrice, externalStudentPrice, academicStaffPrice, adminStaffPrice, description },
         });
         revalidatePath("/admin/facilities");
         revalidatePath("/");
@@ -30,19 +32,21 @@ export async function addFacility(formData: FormData) {
 
 export async function updateFacility(id: string, formData: FormData) {
     const name = formData.get("name") as string;
-    const studentPrice = parseFloat(formData.get("studentPrice") as string);
-    const staffPrice = parseFloat(formData.get("staffPrice") as string);
+    const sbfStudentPrice = parseFloat(formData.get("sbfStudentPrice") as string);
+    const externalStudentPrice = parseFloat(formData.get("externalStudentPrice") as string);
+    const academicStaffPrice = parseFloat(formData.get("academicStaffPrice") as string);
+    const adminStaffPrice = parseFloat(formData.get("adminStaffPrice") as string);
     const description = formData.get("description") as string;
     const isActive = formData.get("isActive") === "true";
 
-    if (!name || isNaN(studentPrice) || isNaN(staffPrice)) {
+    if (!name || isNaN(sbfStudentPrice) || isNaN(externalStudentPrice) || isNaN(academicStaffPrice) || isNaN(adminStaffPrice)) {
         return { error: "Geçersiz veriler." };
     }
 
     try {
         await prisma.facility.update({
             where: { id },
-            data: { name, studentPrice, staffPrice, description, isActive },
+            data: { name, sbfStudentPrice, externalStudentPrice, academicStaffPrice, adminStaffPrice, description, isActive },
         });
         revalidatePath("/admin/facilities");
         revalidatePath("/");
