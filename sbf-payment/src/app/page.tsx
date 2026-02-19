@@ -40,7 +40,7 @@ export default async function Home() {
       </div>
 
       <footer className="mt-8 text-sm text-gray-400 text-center">
-        &copy; {new Date().getFullYear()} Ankara Üniversitesi SKS Bilgi İşlem Daire Başkanlığı
+        &copy; {new Date().getFullYear()} Ankara Üniversitesi SKS Bilgi İşlem
       </footer>
     </div>
   );
