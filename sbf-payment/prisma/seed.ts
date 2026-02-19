@@ -24,8 +24,10 @@ async function main() {
     const facility = await prisma.facility.create({
         data: {
             name: 'Kapalı Yüzme Havuzu',
-            studentPrice: 150.0,
-            staffPrice: 200.0,
+            sbfStudentPrice: 750.0,
+            externalStudentPrice: 1500.0,
+            academicStaffPrice: 3500.0,
+            adminStaffPrice: 2500.0,
             description: 'Tam olimpik yüzme havuzu kullanımı',
         },
     });
