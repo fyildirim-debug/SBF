@@ -66,12 +66,15 @@ export function SubmissionDetails({ submission }: { submission: SerializedSubmis
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Tutar:</span>
                                 <span className="font-medium text-gray-900">
-                                    {submission.userType === "sbf_ogrenci" ? submission.facility.sbfStudentPrice :
-                                     submission.userType === "kurum_ogrenci" ? submission.facility.externalStudentPrice :
-                                     submission.userType === "akademik_personel" ? submission.facility.academicStaffPrice :
-                                     submission.userType === "idari_personel" ? submission.facility.adminStaffPrice :
-                                     submission.userType === "personel" ? (submission.facility as Record<string, unknown>).staffPrice ?? 0 :
-                                     (submission.facility as Record<string, unknown>).studentPrice ?? submission.facility.sbfStudentPrice} TL
+                                    {(() => {
+                                        const ut = submission.userType;
+                                        const f = submission.facility;
+                                        if (ut === "sbf_ogrenci") return f.sbfStudentPrice;
+                                        if (ut === "kurum_ogrenci") return f.externalStudentPrice;
+                                        if (ut === "akademik_personel") return f.academicStaffPrice;
+                                        if (ut === "idari_personel") return f.adminStaffPrice;
+                                        return f.sbfStudentPrice;
+                                    })()} TL
                                 </span>
                             </div>
                             <div className="flex justify-between">
