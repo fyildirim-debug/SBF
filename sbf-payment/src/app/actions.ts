@@ -90,12 +90,16 @@ export async function submitPayment(formData: FormData) {
         const originalName = receiptFile.name.replace(/\s+/g, '-').toLowerCase();
         const filename = `${uniqueSuffix}-${originalName}`;
 
-        // public/uploads klasörüne kaydet
-        const uploadDir = join(process.cwd(), "public/uploads");
+        // uploads klasörüne kaydet (public dışında, API route ile servis edilir)
+        const uploadDir = join(process.cwd(), "uploads");
         const filepath = join(uploadDir, filename);
 
+        // Klasör yoksa oluştur
+        const { mkdir } = await import("fs/promises");
+        await mkdir(uploadDir, { recursive: true });
+
         await writeFile(filepath, buffer);
-        receiptPath = `/uploads/${filename}`;
+        receiptPath = `/api/uploads/${filename}`;
     } catch (error) {
         console.error("Dosya yükleme hatası:", error);
         return { error: "Dosya yüklenirken bir sorun oluştu." };
