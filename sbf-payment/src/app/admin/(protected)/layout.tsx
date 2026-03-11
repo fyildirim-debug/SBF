@@ -13,6 +13,7 @@ import {
     Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChangelogModal } from "../ChangelogModal";
 
 export default async function AdminLayout({
     children,
@@ -88,6 +89,7 @@ export default async function AdminLayout({
                     {children}
                 </div>
             </main>
+            <ChangelogModal />
         </div>
     );
 }
