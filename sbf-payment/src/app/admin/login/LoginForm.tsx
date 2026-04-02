@@ -31,12 +31,22 @@ export function LoginForm() {
         formData.append('captchaToken', captchaToken);
         formData.append('captchaAnswer', captchaAnswer);
 
-        const result = await authenticate(undefined, formData);
+        try {
+            const result = await authenticate(undefined, formData);
 
-        if (result?.success) {
-            window.location.href = '/admin';
-        } else {
-            setError(result?.error ?? 'Bir sorun oluştu.');
+            if (result?.success) {
+                window.location.href = '/admin';
+            } else {
+                setError(result?.error ?? 'Bir sorun oluştu.');
+                setPending(false);
+            }
+        } catch (error: unknown) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            if (errorMsg.includes("Server Action") || errorMsg.includes("Failed to find")) {
+                setError('Sayfa güncel değil. Lütfen sayfayı yenileyiniz (Ctrl+F5).');
+            } else {
+                setError('Beklenmedik bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyiniz.');
+            }
             setPending(false);
         }
     }

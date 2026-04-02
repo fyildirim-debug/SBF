@@ -149,9 +149,15 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
                 reset();
                 setPendingFormData(null);
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Form gönderim hatası:", error);
-            setSubmitResult({ error: "Beklenmedik bir hata oluştu." });
+            // Server Action bulunamadı = eski/yeni deployment uyumsuzluğu
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            if (errorMsg.includes("Server Action") || errorMsg.includes("Failed to find")) {
+                setSubmitResult({ error: "Sayfa güncel değil. Lütfen sayfayı yenileyiniz (Ctrl+F5)." });
+            } else {
+                setSubmitResult({ error: "Beklenmedik bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyiniz." });
+            }
         } finally {
             setIsSubmitting(false);
         }
