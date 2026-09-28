@@ -2,8 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { isAdmin, UNAUTHORIZED_ERROR } from "@/lib/require-admin";
 
 export async function addFormField(formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const label = formData.get("label") as string;
     const type = formData.get("type") as string; // text, number, date, select
     const options = formData.get("options") as string; // virgülle ayrılmış
@@ -45,6 +48,8 @@ export async function addFormField(formData: FormData) {
 }
 
 export async function deleteFormField(id: string) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     try {
         await prisma.formField.delete({ where: { id } });
         revalidatePath("/admin/forms");
@@ -56,6 +61,8 @@ export async function deleteFormField(id: string) {
 }
 
 export async function toggleFormFieldActive(id: string, currentState: boolean) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     try {
         await prisma.formField.update({
             where: { id },

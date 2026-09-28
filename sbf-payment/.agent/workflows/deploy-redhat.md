@@ -66,15 +66,15 @@ npm run build
 ## 4. Ortam Değişkenlerini Ayarla
 
 ```bash
-# .env dosyasını oluştur
-cat > /opt/sbf-payment/.env << 'EOF'
+# .env dosyasını oluştur — AUTH_SECRET her sunucuda rastgele üretilir, repoya yazılmaz
+cat > /opt/sbf-payment/.env << EOF
 DATABASE_URL="file:./dev.db"
-AUTH_SECRET="FySBFsystem32"
+AUTH_SECRET="$(openssl rand -base64 32)"
 EOF
-
-# Secret oluşturmak için:
-openssl rand -base64 32
 ```
+
+> AUTH_SECRET tanımlı değilse, 32 karakterden kısaysa ya da daha önce repoda yayımlanmış bir değerse
+> uygulama kendi rastgele secret'ını `/opt/sbf-payment/.auth-secret` dosyasına üretir ve onu kullanır.
 
 ---
 

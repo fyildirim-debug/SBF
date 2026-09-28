@@ -4,6 +4,9 @@ import { SetupForm } from "./SetupForm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LockKeyhole, ShieldCheck } from 'lucide-react';
 
+// Kurulum / giriş modu her istekte veritabanından okunmalı; build anına sabitlenmemeli
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage() {
     const userCount = await prisma.user.count();
     const isSetupMode = userCount === 0;

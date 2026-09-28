@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 async function getUser(email: string) {
     try {
@@ -20,8 +21,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     pages: {
         signIn: "/admin/login",
     },
-    // Secret'ı hardcoded fallback olarak ekliyoruz çünkü env okunamazsa hata veriyor
-    secret: process.env.NEXTAUTH_SECRET || "gizli-bir-super-secret-key-123456-change-me",
+    secret: getAuthSecret(),
+    // Kendi sunucumuzda (reverse proxy / doğrudan port) çalışır; AUTH_URL tanımlı olmasa da Host başlığına güven
+    trustHost: true,
     providers: [
         Credentials({
             async authorize(credentials) {
@@ -38,7 +40,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     if (passwordsMatch) return user;
                 }
 
-                console.log("Invalid credentials");
                 return null;
             },
         }),

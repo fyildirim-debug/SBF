@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { X, Sparkles, CheckCircle2 } from "lucide-react";
 
 const CHANGELOG_VERSION = "v1.1.0";
@@ -44,17 +44,24 @@ const changelog = {
     ],
 };
 
-export function ChangelogModal() {
-    const [open, setOpen] = useState(false);
+// localStorage'daki "görüldü" bilgisini okur; sunucuda ve erişilemezse görülmüş sayılır
+function readSeen(): boolean {
+    try {
+        return localStorage.getItem(STORAGE_KEY) !== null;
+    } catch {
+        return true;
+    }
+}
 
-    useEffect(() => {
-        try {
-            const seen = localStorage.getItem(STORAGE_KEY);
-            if (!seen) setOpen(true);
-        } catch {
-            // localStorage erişilemiyorsa gösterme
-        }
-    }, []);
+function subscribe(onChange: () => void) {
+    window.addEventListener("storage", onChange);
+    return () => window.removeEventListener("storage", onChange);
+}
+
+export function ChangelogModal() {
+    const seen = useSyncExternalStore(subscribe, readSeen, () => true);
+    const [closed, setClosed] = useState(false);
+    const open = !seen && !closed;
 
     function close() {
         try {
@@ -62,7 +69,7 @@ export function ChangelogModal() {
         } catch {
             // ignore
         }
-        setOpen(false);
+        setClosed(true);
     }
 
     if (!open) return null;

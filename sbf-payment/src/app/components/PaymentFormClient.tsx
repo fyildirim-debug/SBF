@@ -63,9 +63,12 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
     const [submitResult, setSubmitResult] = useState<{ success?: boolean; error?: string } | null>(null);
     const [showConsentModal, setShowConsentModal] = useState(false);
     const [pendingFormData, setPendingFormData] = useState<PaymentFormData | null>(null);
-    const [captchaValid, setCaptchaValid] = useState(false);
     const [captchaToken, setCaptchaToken] = useState("");
     const [captchaAnswer, setCaptchaAnswer] = useState("");
+    const [captchaKey, setCaptchaKey] = useState(0);
+    // Onaylar bir kez alınır; gönderim hata verirse (ör. captcha) tekrar sorulmaz
+    const [collectedConsents, setCollectedConsents] = useState<ConsentData[] | null>(null);
+    const captchaValid = captchaToken !== "" && captchaAnswer.trim() !== "";
     const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<PaymentFormData>();
 
     const selectedFacilityId = watch("facilityId");
@@ -83,18 +86,25 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
         }
     }
 
+    // Sunucu her gönderimde güvenlik sorusunu geçersiz kılar; hata sonrası yeni soru getir
+    function resetCaptcha() {
+        setCaptchaToken("");
+        setCaptchaAnswer("");
+        setCaptchaKey((k) => k + 1);
+    }
+
     // Form submit edildiğinde önce CAPTCHA kontrolü yap, sonra PDF onay modal'ını aç
     function onFormSubmit(data: PaymentFormData) {
         if (!captchaValid) {
-            setSubmitResult({ error: "Lütfen güvenlik doğrulamasını doğru şekilde tamamlayınız." });
+            setSubmitResult({ error: "Lütfen güvenlik sorusunu cevaplayınız." });
             return;
         }
         setSubmitResult(null);
         setPendingFormData(data);
 
-        // DB'de onay dökümanı yoksa modal'ı atla, direkt gönder
-        if (consentDocuments.length === 0) {
-            handleConsentComplete([], data);
+        // DB'de onay dökümanı yoksa ya da onaylar zaten alındıysa modal'ı atla, direkt gönder
+        if (consentDocuments.length === 0 || collectedConsents) {
+            handleConsentComplete(collectedConsents ?? [], data);
             return;
         }
         setShowConsentModal(true);
@@ -103,6 +113,7 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
     // PDF onayları tamamlandığında formu gönder
     async function handleConsentComplete(consents: ConsentData[], overrideData?: PaymentFormData) {
         setShowConsentModal(false);
+        setCollectedConsents(consents);
 
         const formDataSource = overrideData || pendingFormData;
         if (!formDataSource) return;
@@ -144,10 +155,13 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
             const result = await submitPayment(formData);
             if (result.error) {
                 setSubmitResult({ error: result.error });
+                resetCaptcha();
             } else {
                 setSubmitResult({ success: true });
                 reset();
                 setPendingFormData(null);
+                setCollectedConsents(null);
+                resetCaptcha();
             }
         } catch (error: unknown) {
             console.error("Form gönderim hatası:", error);
@@ -158,6 +172,7 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
             } else {
                 setSubmitResult({ error: "Beklenmedik bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyiniz." });
             }
+            resetCaptcha();
         } finally {
             setIsSubmitting(false);
         }
@@ -194,13 +209,15 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
 
     return (
         <>
-            {/* PDF Onay Modal'ı */}
-            <PDFConsentModal
-                isOpen={showConsentModal}
-                onComplete={handleConsentComplete}
-                onClose={handleConsentClose}
-                documents={consentDocuments}
-            />
+            {/* PDF Onay Modal'ı — kapanınca kaldırılır, böylece her açılışta ilk dökümandan başlar */}
+            {showConsentModal && (
+                <PDFConsentModal
+                    isOpen
+                    onComplete={handleConsentComplete}
+                    onClose={handleConsentClose}
+                    documents={consentDocuments}
+                />
+            )}
 
             <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -430,8 +447,8 @@ export function PaymentFormClient({ facilities, extraFields, consentDocuments }:
 
                 {/* Matematik CAPTCHA */}
                 <MathCaptcha
-                    onValidChange={(isValid, token, answer) => {
-                        setCaptchaValid(isValid);
+                    key={captchaKey}
+                    onChange={(token, answer) => {
                         setCaptchaToken(token);
                         setCaptchaAnswer(answer);
                     }}

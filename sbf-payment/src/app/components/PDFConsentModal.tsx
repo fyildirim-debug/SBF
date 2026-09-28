@@ -69,15 +69,6 @@ export function PDFConsentModal({
     }
   }, [isOpen]);
 
-  // Modal kapandığında sıfırla
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep(0);
-      setIsChecked(false);
-      setConsents([]);
-    }
-  }, [isOpen]);
-
   // Sonraki adıma geç veya tamamla
   const handleNext = async () => {
     if (!isChecked) return;
@@ -198,7 +189,7 @@ export function PDFConsentModal({
                 </div>
               </div>
               <span className="text-gray-700 select-none">
-                <strong>"{currentDoc.title}"</strong> dökümanını okudum ve kabul
+                <strong>&ldquo;{currentDoc.title}&rdquo;</strong> dökümanını okudum ve kabul
                 ediyorum.
               </span>
             </label>

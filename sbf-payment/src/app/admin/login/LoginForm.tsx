@@ -11,9 +11,17 @@ import { MathCaptcha } from '@/app/components/MathCaptcha';
 export function LoginForm() {
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
-    const [captchaValid, setCaptchaValid] = useState(false);
     const [captchaToken, setCaptchaToken] = useState('');
     const [captchaAnswer, setCaptchaAnswer] = useState('');
+    const [captchaKey, setCaptchaKey] = useState(0);
+    const captchaValid = captchaToken !== '' && captchaAnswer.trim() !== '';
+
+    // Sunucu her denemede soruyu geçersiz kılar; hata sonrası yeni soru getir
+    function resetCaptcha() {
+        setCaptchaToken('');
+        setCaptchaAnswer('');
+        setCaptchaKey((k) => k + 1);
+    }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -35,9 +43,12 @@ export function LoginForm() {
             const result = await authenticate(undefined, formData);
 
             if (result?.success) {
+                // Yeni oturum çerezinin tüm sayfalara yansıması için tam sayfa yükleme
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.href = '/admin';
             } else {
                 setError(result?.error ?? 'Bir sorun oluştu.');
+                resetCaptcha();
                 setPending(false);
             }
         } catch (error: unknown) {
@@ -47,6 +58,7 @@ export function LoginForm() {
             } else {
                 setError('Beklenmedik bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyiniz.');
             }
+            resetCaptcha();
             setPending(false);
         }
     }
@@ -78,8 +90,8 @@ export function LoginForm() {
 
             {/* Matematik CAPTCHA */}
             <MathCaptcha
-                onValidChange={(isValid, token, answer) => {
-                    setCaptchaValid(isValid);
+                key={captchaKey}
+                onChange={(token, answer) => {
                     setCaptchaToken(token);
                     setCaptchaAnswer(answer);
                 }}

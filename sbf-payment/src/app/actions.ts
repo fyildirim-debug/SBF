@@ -2,58 +2,74 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { randomUUID } from "crypto";
+import { verifyCaptcha } from "@/lib/captcha";
+import { getRequestInfo } from "@/lib/request-info";
 
-// Consent veri tipi
-interface ConsentData {
-    documentName: string;
-    consentAt: string;
-    ipAddress: string;
-    userAgent: string;
+const USER_TYPES = ["sbf_ogrenci", "kurum_ogrenci", "akademik_personel", "idari_personel"];
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+
+// Dosya türü istemcinin verdiği uzantıdan değil, içeriğin ilk baytlarından belirlenir
+function detectReceiptExtension(bytes: Buffer): string | null {
+    if (bytes.subarray(0, 5).toString("latin1") === "%PDF-") return ".pdf";
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return ".jpg";
+    if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return ".png";
+    if (bytes.subarray(0, 4).toString("latin1") === "GIF8") return ".gif";
+    if (bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") return ".webp";
+    if (bytes.subarray(4, 8).toString("latin1") === "ftyp") {
+        const brand = bytes.subarray(8, 12).toString("latin1");
+        if (["heic", "heix", "hevc", "heim", "heis", "mif1", "msf1"].includes(brand)) return ".heic";
+    }
+    return null;
+}
+
+// Türkçe karakterleri sadeleştirip dosya adında yalnız güvenli karakter bırakır
+function safeBaseName(originalName: string): string {
+    const withoutExt = originalName.replace(/\.[^.]*$/, "");
+    const base = withoutExt
+        .toLocaleLowerCase("tr-TR")
+        .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+        .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+        .normalize("NFKD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+    return base || "dekont";
+}
+
+function field(formData: FormData, key: string, maxLength: number): string {
+    const value = formData.get(key);
+    return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
 export async function submitPayment(formData: FormData) {
-    const tcNo = formData.get("tcNo") as string;
-    const fullName = formData.get("fullName") as string;
-    const email = formData.get("email") as string;
-    const address = formData.get("address") as string;
-    const studentNo = formData.get("studentNo") as string;
-    const userType = (formData.get("userType") as string) || "ogrenci";
-    const facilityId = formData.get("facilityId") as string;
-    const receiptFile = formData.get("receipt") as File;
-    const consentsJson = formData.get("consents") as string;
-    const captchaToken = formData.get("captchaToken") as string;
-    const captchaAnswer = formData.get("captchaAnswer") as string;
-
-    // CAPTCHA doğrulaması (server-side)
-    if (!captchaToken || !captchaAnswer) {
-        return { error: "Güvenlik doğrulaması eksik." };
+    // CAPTCHA doğrulaması (server-side, imzalı ve tek kullanımlık)
+    const captcha = verifyCaptcha(
+        formData.get("captchaToken") as string | null,
+        formData.get("captchaAnswer") as string | null,
+    );
+    if (!captcha.ok) {
+        return { error: captcha.error };
     }
-    try {
-        const decoded = Buffer.from(captchaToken, "base64").toString("utf-8");
-        const [expectedAnswer, tokenTimestamp] = decoded.split(":");
-        const currentTimestamp = Math.floor(Date.now() / 60000);
-        const tokenAge = currentTimestamp - parseInt(tokenTimestamp, 10);
 
-        // Token 5 dakikadan eski ise reddet (bot tekrar deneme koruması)
-        if (tokenAge > 5) {
-            return { error: "Güvenlik sorusu süresi doldu. Lütfen sayfayı yenileyiniz." };
-        }
-
-        if (parseInt(captchaAnswer, 10) !== parseInt(expectedAnswer, 10)) {
-            return { error: "Güvenlik doğrulaması hatalı. Lütfen matematik sorusunu tekrar çözünüz." };
-        }
-    } catch {
-        return { error: "Güvenlik doğrulaması geçersiz." };
-    }
+    const tcNo = field(formData, "tcNo", 11);
+    const fullName = field(formData, "fullName", 200);
+    const email = field(formData, "email", 254);
+    const address = field(formData, "address", 1000);
+    const studentNo = field(formData, "studentNo", 50);
+    const userType = field(formData, "userType", 50) || "sbf_ogrenci";
+    const facilityId = field(formData, "facilityId", 50);
+    const receiptFile = formData.get("receipt");
+    const consentsJson = formData.get("consents");
 
     // Temel validasyon
-    if (!tcNo || !fullName || !email || !address || !studentNo || !facilityId || !receiptFile) {
+    if (!tcNo || !fullName || !email || !address || !studentNo || !facilityId || !(receiptFile instanceof File) || receiptFile.size === 0) {
         return { error: "Lütfen tüm alanları doldurunuz." };
     }
 
-    if (tcNo.length !== 11) {
+    if (!/^\d{11}$/.test(tcNo)) {
         return { error: "Geçersiz T.C. Kimlik No." };
     }
 
@@ -63,62 +79,77 @@ export async function submitPayment(formData: FormData) {
         return { error: "Geçerli bir e-posta adresi giriniz." };
     }
 
+    if (!USER_TYPES.includes(userType)) {
+        return { error: "Geçersiz kişi tipi." };
+    }
 
-    // PDF onay kontrolü
-    let consents: ConsentData[] = [];
+    const facility = await prisma.facility.findFirst({ where: { id: facilityId, isActive: true }, select: { id: true } });
+    if (!facility) {
+        return { error: "Seçilen tesis bulunamadı. Lütfen sayfayı yenileyiniz." };
+    }
+
+    // PDF onay kontrolü — kullanıcı tüm aktif dökümanları onaylamış olmalı
+    const activeDocs = await prisma.consentDocument.findMany({
+        where: { isActive: true },
+        orderBy: { order: "asc" },
+        select: { name: true },
+    });
+    let consentedNames: string[] = [];
     try {
-        if (consentsJson) {
-            consents = JSON.parse(consentsJson);
-        }
-        // Aktif döküman sayısını kontrol et — ona göre consent zorunluluğu belirle
-        const activeDocCount = await prisma.consentDocument.count({ where: { isActive: true } });
-        if (activeDocCount > 0 && consents.length < activeDocCount) {
-            return { error: "Lütfen tüm dökümanları onaylayınız." };
+        const parsed = typeof consentsJson === "string" && consentsJson ? JSON.parse(consentsJson) : [];
+        if (Array.isArray(parsed)) {
+            consentedNames = parsed
+                .map((c) => (c && typeof c === "object" ? (c as { documentName?: unknown }).documentName : null))
+                .filter((n): n is string => typeof n === "string");
         }
     } catch {
         return { error: "Onay bilgileri geçersiz." };
+    }
+    if (activeDocs.some((doc) => !consentedNames.includes(doc.name))) {
+        return { error: "Lütfen tüm dökümanları onaylayınız. Döküman listesi güncellendiyse sayfayı yenileyiniz." };
+    }
+
+    // Dinamik alanlar: yalnız aktif form alanları kabul edilir
+    const formFields = await prisma.formField.findMany({ where: { isActive: true } });
+    const extraDataObj: Record<string, string> = {};
+    for (const f of formFields) {
+        const value = field(formData, f.name, 1000);
+        if (f.required && !value) {
+            return { error: `Lütfen "${f.label}" alanını doldurunuz.` };
+        }
+        if (value) extraDataObj[f.name] = value;
     }
 
     // Dosya kaydetme
     let receiptPath = "";
     try {
-        const bytes = await receiptFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
+        if (receiptFile.size > MAX_RECEIPT_BYTES) {
+            return { error: "Dekont dosyası en fazla 10 MB olabilir." };
+        }
 
-        // Benzersiz dosya adı oluştur
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const originalName = receiptFile.name.replace(/\s+/g, '-').toLowerCase();
-        const filename = `${uniqueSuffix}-${originalName}`;
+        const buffer = Buffer.from(await receiptFile.arrayBuffer());
+        const ext = detectReceiptExtension(buffer);
+        if (!ext) {
+            return { error: "Dekont PDF veya fotoğraf (JPG, PNG, WEBP, HEIC) olmalıdır." };
+        }
 
-        // uploads klasörüne kaydet (public dışında, API route ile servis edilir)
+        const filename = `${Date.now()}-${randomUUID().slice(0, 8)}-${safeBaseName(receiptFile.name)}${ext}`;
+
+        // uploads klasörüne kaydet (public dışında, yetkili API route ile servis edilir)
         const uploadDir = join(process.cwd(), "uploads");
-        const filepath = join(uploadDir, filename);
-
-        // Klasör yoksa oluştur
-        const { mkdir } = await import("fs/promises");
         await mkdir(uploadDir, { recursive: true });
-
-        await writeFile(filepath, buffer);
+        await writeFile(join(uploadDir, filename), buffer);
         receiptPath = `/api/uploads/${filename}`;
     } catch (error) {
         console.error("Dosya yükleme hatası:", error);
         return { error: "Dosya yüklenirken bir sorun oluştu." };
     }
 
-    // Sabit alanlar dışındaki verileri extraData olarak topla
-    const fixedKeys = ["tcNo", "fullName", "email", "address", "studentNo", "facilityId", "receipt", "consents", "captchaToken", "captchaAnswer", "userType"];
-    const extraDataObj: Record<string, string> = {};
-
-    formData.forEach((value, key) => {
-        if (!fixedKeys.includes(key)) {
-            extraDataObj[key] = value as string;
-        }
-    });
-
-    const extraData = JSON.stringify(extraDataObj);
+    // Dijital imza kaydı: IP, tarayıcı ve zaman sunucuda belirlenir (istemciden gelen değere güvenilmez)
+    const { ip, userAgent } = await getRequestInfo();
+    const consentAt = new Date();
 
     try {
-        // Başvuru ve onay kayıtlarını tek transaction'da oluştur
         await prisma.submission.create({
             data: {
                 tcNo,
@@ -129,15 +160,14 @@ export async function submitPayment(formData: FormData) {
                 userType,
                 facilityId,
                 receiptPath,
-                extraData,
+                extraData: JSON.stringify(extraDataObj),
                 status: "pending",
-                // Dijital imza kayıtlarını oluştur
                 consents: {
-                    create: consents.map((consent) => ({
-                        documentName: consent.documentName,
-                        ipAddress: consent.ipAddress,
-                        userAgent: consent.userAgent || null,
-                        consentAt: new Date(consent.consentAt),
+                    create: activeDocs.map((doc) => ({
+                        documentName: doc.name,
+                        ipAddress: ip,
+                        userAgent,
+                        consentAt,
                     })),
                 },
             },
@@ -150,4 +180,3 @@ export async function submitPayment(formData: FormData) {
     revalidatePath("/admin/submissions");
     return { success: true };
 }
-

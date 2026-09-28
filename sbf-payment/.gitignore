@@ -45,3 +45,6 @@ next-env.d.ts
 # Yüklenen dosyalar
 /uploads/
 /public/uploads/
+
+# Otomatik üretilen oturum secret'ı (AUTH_SECRET yoksa)
+/.auth-secret

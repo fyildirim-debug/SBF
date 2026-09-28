@@ -5,6 +5,13 @@ import { AuthError } from 'next-auth';
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { AuthState } from "@/lib/types";
+import { verifyCaptcha } from "@/lib/captcha";
+import { getRequestInfo } from "@/lib/request-info";
+import { clearFailures, isRateLimited, registerFailure } from "@/lib/rate-limit";
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_IP_LIMIT = 20;
+const LOGIN_ACCOUNT_LIMIT = 5;
 
 export async function setupAdmin(formData: FormData) {
     const email = formData.get("email") as string;
@@ -44,40 +51,45 @@ export async function authenticate(
     formData: FormData,
 ): Promise<AuthState> {
 
-    // CAPTCHA doğrulaması (server-side)
-    const captchaToken = formData.get('captchaToken') as string;
-    const captchaAnswer = formData.get('captchaAnswer') as string;
+    const email = String(formData.get('email') ?? '').trim();
+    const { ip } = await getRequestInfo();
+    const ipKey = `login-ip:${ip}`;
+    const accountKey = `login-account:${email.toLowerCase()}`;
 
-    if (!captchaToken || !captchaAnswer) {
-        return { error: 'Güvenlik doğrulaması eksik.' };
+    // Kaba kuvvet koruması: IP başına ve hesap başına başarısız deneme sınırı
+    if (isRateLimited(ipKey, LOGIN_IP_LIMIT) || isRateLimited(accountKey, LOGIN_ACCOUNT_LIMIT)) {
+        return { error: 'Çok fazla başarısız deneme. Lütfen 15 dakika sonra tekrar deneyiniz.' };
     }
-    try {
-        const decoded = Buffer.from(captchaToken, 'base64').toString('utf-8');
-        const [expectedAnswer, tokenTimestamp] = decoded.split(':');
-        const currentTimestamp = Math.floor(Date.now() / 60000);
-        const tokenAge = currentTimestamp - parseInt(tokenTimestamp, 10);
 
-        if (tokenAge > 5) {
-            return { error: 'Güvenlik sorusu süresi doldu. Lütfen sayfayı yenileyiniz.' };
-        }
-        if (parseInt(captchaAnswer, 10) !== parseInt(expectedAnswer, 10)) {
-            return { error: 'Güvenlik doğrulaması hatalı.' };
-        }
-    } catch {
-        return { error: 'Güvenlik doğrulaması geçersiz.' };
+    // CAPTCHA doğrulaması (server-side, imzalı ve tek kullanımlık)
+    const captcha = verifyCaptcha(
+        formData.get('captchaToken') as string | null,
+        formData.get('captchaAnswer') as string | null,
+    );
+    if (!captcha.ok) {
+        registerFailure(ipKey, LOGIN_WINDOW_MS);
+        return { error: captcha.error };
     }
 
     try {
-        await signIn('credentials', {
-            email: formData.get('email'),
+        const resultUrl = await signIn('credentials', {
+            email,
             password: formData.get('password'),
             redirect: false,
         });
+        // Yapılandırma hatalarında signIn hata fırlatmaz, ?error=... içeren bir adres döner
+        if (typeof resultUrl === 'string' && /[?&]error=/.test(resultUrl)) {
+            console.error('Giriş başarısız, Auth.js yanıtı:', resultUrl);
+            return { error: 'Giriş yapılamadı. Lütfen sistem yöneticisine başvurunuz.' };
+        }
+        clearFailures(accountKey);
         return { success: true };
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
                 case 'CredentialsSignin':
+                    registerFailure(ipKey, LOGIN_WINDOW_MS);
+                    registerFailure(accountKey, LOGIN_WINDOW_MS);
                     return { error: 'Hatalı e-posta veya şifre.' };
                 default:
                     return { error: 'Bir sorun oluştu.' };

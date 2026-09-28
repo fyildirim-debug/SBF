@@ -3,19 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { writeFile, unlink } from "fs/promises";
-import { join } from "path";
+import { basename, join } from "path";
 import { existsSync, mkdirSync } from "fs";
-
-// Tüm aktif dökümanları getir (form için)
-export async function getConsentDocuments() {
-    return prisma.consentDocument.findMany({
-        where: { isActive: true },
-        orderBy: { order: "asc" },
-    });
-}
+import { isAdmin, requireAdmin, UNAUTHORIZED_ERROR } from "@/lib/require-admin";
 
 // Admin: tüm dökümanları getir
 export async function getAllConsentDocuments() {
+    await requireAdmin();
     return prisma.consentDocument.findMany({
         orderBy: { order: "asc" },
     });
@@ -23,6 +17,8 @@ export async function getAllConsentDocuments() {
 
 // Yeni döküman ekle (PDF yükle)
 export async function uploadConsentDocument(formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const name = formData.get("name") as string;
     const title = formData.get("title") as string;
     const order = parseInt(formData.get("order") as string || "0", 10);
@@ -37,6 +33,11 @@ export async function uploadConsentDocument(formData: FormData) {
     }
 
     try {
+        const bytes = Buffer.from(await file.arrayBuffer());
+        if (bytes.subarray(0, 5).toString("latin1") !== "%PDF-") {
+            return { error: "Dosya geçerli bir PDF değil." };
+        }
+
         // Dosyayı kaydet
         const docsDir = join(process.cwd(), "public/documents");
         if (!existsSync(docsDir)) mkdirSync(docsDir, { recursive: true });
@@ -45,15 +46,14 @@ export async function uploadConsentDocument(formData: FormData) {
         const uniqueName = `${Date.now()}_${safeName}`;
         const filePath = join(docsDir, uniqueName);
 
-        const bytes = await file.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
+        await writeFile(filePath, bytes);
 
-        // DB'ye kaydet
+        // DB'ye kaydet — build sonrası eklenen dosyalar public/ altından servis edilmediği için API route üzerinden sunulur
         await prisma.consentDocument.create({
             data: {
                 name,
                 title,
-                filePath: `/documents/${uniqueName}`,
+                filePath: `/api/documents/${uniqueName}`,
                 order,
                 isActive: true,
             },
@@ -70,6 +70,8 @@ export async function uploadConsentDocument(formData: FormData) {
 
 // Dökümanı güncelle (sadece meta — ad, başlık, sıra)
 export async function updateConsentDocument(id: string, formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const name = formData.get("name") as string;
     const title = formData.get("title") as string;
     const order = parseInt(formData.get("order") as string || "0", 10);
@@ -95,16 +97,23 @@ export async function updateConsentDocument(id: string, formData: FormData) {
 
 // Dökümanı sil
 export async function deleteConsentDocument(id: string) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     try {
         const doc = await prisma.consentDocument.findUnique({ where: { id } });
         if (!doc) return { error: "Döküman bulunamadı." };
 
-        // Dosyayı diskten sil
-        const filePath = join(process.cwd(), "public", doc.filePath);
-        try {
-            await unlink(filePath);
-        } catch {
-            // Dosya yoksa sessizce geç
+        // Başka bir kayıt aynı dosyayı kullanmıyorsa diskten sil
+        const sharedCount = await prisma.consentDocument.count({
+            where: { filePath: doc.filePath, id: { not: id } },
+        });
+        if (sharedCount === 0) {
+            const filePath = join(process.cwd(), "public", "documents", basename(doc.filePath));
+            try {
+                await unlink(filePath);
+            } catch {
+                // Dosya yoksa sessizce geç
+            }
         }
 
         await prisma.consentDocument.delete({ where: { id } });

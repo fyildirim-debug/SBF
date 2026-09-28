@@ -5,7 +5,7 @@ import { addAdmin, changeAdminPassword, deleteAdmin } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, KeyRound, Trash2, X, Check, Eye, EyeOff, UserPlus } from "lucide-react";
+import { KeyRound, Trash2, X, Check, Eye, EyeOff, UserPlus } from "lucide-react";
 
 interface AdminUser {
     id: string;

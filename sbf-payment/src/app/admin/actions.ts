@@ -3,10 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
+import { isAdmin, requireAdmin, UNAUTHORIZED_ERROR } from "@/lib/require-admin";
 
 // --- Tesis İşlemleri ---
 
 export async function addFacility(formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const name = formData.get("name") as string;
     const sbfStudentPrice = parseFloat(formData.get("sbfStudentPrice") as string);
     const externalStudentPrice = parseFloat(formData.get("externalStudentPrice") as string);
@@ -31,6 +34,8 @@ export async function addFacility(formData: FormData) {
 }
 
 export async function updateFacility(id: string, formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const name = formData.get("name") as string;
     const sbfStudentPrice = parseFloat(formData.get("sbfStudentPrice") as string);
     const externalStudentPrice = parseFloat(formData.get("externalStudentPrice") as string);
@@ -57,6 +62,8 @@ export async function updateFacility(id: string, formData: FormData) {
 }
 
 export async function deleteFacility(id: string) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     try {
         const submissionCount = await prisma.submission.count({
             where: { facilityId: id }
@@ -80,6 +87,12 @@ export async function deleteFacility(id: string) {
 // --- Başvuru İşlemleri ---
 
 export async function updateSubmissionStatus(id: string, status: string) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
+    if (!["pending", "approved", "rejected"].includes(status)) {
+        return { error: "Geçersiz durum." };
+    }
+
     try {
         await prisma.submission.update({
             where: { id },
@@ -101,6 +114,8 @@ const SETTING_KEYS = {
 };
 
 export async function updateSettings(formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const applicationRules = formData.get("applicationRules") as string;
     const usageTerms = formData.get("usageTerms") as string;
 
@@ -127,6 +142,7 @@ export async function updateSettings(formData: FormData) {
 // --- Admin Kullanıcı Yönetimi ---
 
 export async function getAdmins() {
+    await requireAdmin();
     return prisma.user.findMany({
         select: { id: true, email: true, name: true, role: true, createdAt: true },
         orderBy: { createdAt: "desc" },
@@ -134,6 +150,8 @@ export async function getAdmins() {
 }
 
 export async function addAdmin(formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const email = formData.get("email") as string;
     const name = formData.get("name") as string;
     const password = formData.get("password") as string;
@@ -164,6 +182,8 @@ export async function addAdmin(formData: FormData) {
 }
 
 export async function changeAdminPassword(id: string, formData: FormData) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     const newPassword = formData.get("newPassword") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
@@ -187,6 +207,8 @@ export async function changeAdminPassword(id: string, formData: FormData) {
 }
 
 export async function deleteAdmin(id: string) {
+    if (!(await isAdmin())) return { error: UNAUTHORIZED_ERROR };
+
     try {
         const adminCount = await prisma.user.count();
         if (adminCount <= 1) {

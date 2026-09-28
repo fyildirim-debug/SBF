@@ -113,9 +113,9 @@ npm run build
 
 ```bash
 # .env dosyasını oluştur
-cat > .env << 'EOF'
+cat > .env << EOF
 DATABASE_URL="file:./prisma/prod.db"
-NEXTAUTH_SECRET="BURAYA-EN-AZ-32-KARAKTER-GUCLU-SECRET"
+AUTH_SECRET="$(openssl rand -base64 32)"
 NEXTAUTH_URL="https://sizin-domain-adiniz.com"
 EOF
 ```
@@ -192,7 +192,7 @@ npx prisma migrate deploy
 
 1. Kullanıcı formu doldurur (TC, Ad Soyad, E-posta, Adres, Tesis seçimi, Dekont)
 2. PDF dökümanları (Üyelik Başvurusu + Kullanım Kuralları) onaylanır
-3. Başvuru veritabanına kaydedilir, dekont `public/uploads/` klasörüne yüklenir
+3. Başvuru veritabanına kaydedilir, dekont `uploads/` klasörüne yüklenir (yalnız yönetici görebilir)
 4. Admin panelinde başvuru **Bekliyor → Onaylandı / Reddedildi** olarak işlenir
 
 ---
@@ -200,8 +200,8 @@ npx prisma migrate deploy
 ## 🔐 Güvenlik Notları
 
 - `.env` dosyasını asla git'e commit etmeyin
-- `NEXTAUTH_SECRET` en az 32 karakter olmalıdır
-- Production'da `public/uploads/` klasörüne doğrudan erişimi Nginx/Apache ile kısıtlayın
+- `AUTH_SECRET` en az 32 karakter olmalıdır; tanımlı değilse uygulama `.auth-secret` dosyasına rastgele bir secret üretir
+- Dekontlar `uploads/` klasöründe tutulur ve yalnız giriş yapmış yöneticiye `/api/uploads/...` üzerinden servis edilir
 - Admin şifresini ilk girişte değiştirin
 
 ---

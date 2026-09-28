@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  async rewrites() {
+    return {
+      // public/uploads altında kalmış eski dekontlar statik olarak herkese açık servis edilmesin;
+      // istekler yetki kontrolü yapan API route'a yönlendirilir
+      beforeFiles: [
+        { source: "/uploads/:path*", destination: "/api/uploads/:path*" },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 export default nextConfig;
