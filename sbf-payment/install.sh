@@ -9,7 +9,8 @@
 #    - Node.js 20.9+ yoksa kurar (dnf/yum/apt)
 #    - Bağımlılıkları kurar, veritabanını oluşturur/günceller, uygulamayı derler
 #    - Boş kurulumda ilk yöneticiyi oluşturur (şifre ekrana ve /root altına yazılır)
-#    - /opt/sbf-payment gibi eski bir kurulum varsa veritabanını ve dekontları kopyalar
+#    - Yeni veritabanı boşsa eski kurulumu (PM2 klasörü, /opt/sbf-payment, bu klasördeki yedekler)
+#      bulup en çok başvuru içeren veritabanını ve dekontları kopyalar
 #    - "sbf-payment" systemd servisini kurar: sunucu her açıldığında otomatik başlar,
 #      çökerse yeniden başlar
 #
@@ -19,6 +20,7 @@
 #      sudo PORT=3000 bash install.sh                  # 80 dışında bir port
 #      sudo ADMIN_EMAIL=ad@ankara.edu.tr bash install.sh
 #      sudo OLD_DIR=/eski/kurulum bash install.sh      # verisi taşınacak eski klasör
+#      sudo OLD_DB=/eski/kurulum/prisma/dev.db bash install.sh   # doğrudan eski veritabanı dosyası
 # =====================================================================
 set -Eeuo pipefail
 
@@ -187,15 +189,30 @@ command -v npm >/dev/null 2>&1 || fail "npm bulunamadı."
 NODE_BIN="$(command -v node)"
 
 step "3/8 Çalışan eski sürüm durduruluyor"
+OLD_UNIT_DIR=""
+PM2_CWD=""
 if [[ -f $UNIT_FILE ]]; then
     UNIT_BACKUP="$(mktemp)"
     cp -f "$UNIT_FILE" "$UNIT_BACKUP"
+    OLD_UNIT_DIR="$(sed -n 's/^WorkingDirectory=//p' "$UNIT_FILE")"
+    OLD_UNIT_DIR="${OLD_UNIT_DIR%%$'\n'*}"
     if systemctl is-active --quiet "$SERVICE_NAME"; then
         run "$SERVICE_NAME servisi durduruluyor" systemctl stop "$SERVICE_NAME"
         OLD_SYSTEMD_STOPPED=1
     fi
 fi
 if command -v pm2 >/dev/null 2>&1 && pm2 describe "$SERVICE_NAME" >/dev/null 2>&1; then
+    # Eski uygulamanın çalıştığı klasör: veritabanı taşımada ilk bakılacak yer
+    PM2_CWD="$(pm2 jlist 2>/dev/null | node -e '
+        let s = "";
+        process.stdin.on("data", (d) => (s += d)).on("end", () => {
+            try {
+                const list = JSON.parse(s.slice(s.indexOf("[{")));
+                const p = list.find((x) => x.name === process.argv[1]);
+                if (p && p.pm2_env && p.pm2_env.pm_cwd) console.log(p.pm2_env.pm_cwd);
+            } catch {}
+        });' "$SERVICE_NAME" 2>/dev/null || true)"
+    [[ -n $PM2_CWD ]] && info "Eski PM2 uygulama klasörü: $PM2_CWD"
     run "Eski PM2 süreci ($SERVICE_NAME) durduruluyor" pm2 stop "$SERVICE_NAME"
     OLD_PM2_STOPPED=1
 fi
@@ -236,48 +253,12 @@ DB_PATH="$(db_path_from_url "$DATABASE_URL" "$APP_DIR")"
 mkdir -p "$(dirname "$DB_PATH")"
 info "Veritabanı: $DB_PATH"
 
-# Eski kurulumdan veri taşıma (yalnız yeni veritabanı henüz yoksa; eski dosyalar yerinde kalır)
-if [[ ! -f $DB_PATH ]]; then
-    OLD=""
-    for cand in "${OLD_DIR:-}" /opt/sbf-payment /var/www/sbf-payment /var/www/SBF/sbf-payment; do
-        [[ -n $cand && -d $cand && -f $cand/prisma/schema.prisma ]] || continue
-        [[ "$(cd "$cand" && pwd)" == "$APP_DIR" ]] && continue
-        OLD="$(cd "$cand" && pwd)"
-        break
-    done
-
-    if [[ -n $OLD ]]; then
-        info "Eski kurulum bulundu: $OLD"
-        OLD_DB=""
-        OLD_URL="$(env_value "$OLD/.env" DATABASE_URL)"
-        if [[ -n $OLD_URL ]]; then
-            OLD_DB="$(db_path_from_url "$OLD_URL" "$OLD")"
-            [[ -f $OLD_DB ]] || OLD_DB=""
-        fi
-        if [[ -z $OLD_DB ]]; then
-            # .env'den bulunamazsa en son değişen .db dosyası
-            OLD_DB="$(find "$OLD" -maxdepth 3 -name '*.db' -not -path '*/node_modules/*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | sed -n '1s/^[^ ]* //p')"
-        fi
-        if [[ -n $OLD_DB ]]; then
-            if command -v sqlite3 >/dev/null 2>&1; then
-                run "Eski veritabanı kopyalanıyor ($OLD_DB)" sqlite3 "$OLD_DB" ".backup '$DB_PATH'"
-            else
-                run "Eski veritabanı kopyalanıyor ($OLD_DB)" cp -p "$OLD_DB" "$DB_PATH"
-            fi
-        else
-            warn "Eski kurulumda veritabanı bulunamadı; boş veritabanı oluşturulacak."
-        fi
-        for d in uploads public/uploads public/documents; do
-            if [[ -d $OLD/$d ]]; then
-                mkdir -p "$APP_DIR/$d"
-                cp -rpn "$OLD/$d/." "$APP_DIR/$d/" 2>/dev/null || true
-                info "$d klasörü kopyalandı (mevcut dosyaların üzerine yazılmadı)."
-            fi
-        done
-    else
-        info "Eski kurulum yok; boş veritabanı oluşturulacak."
+# Uygulama klasörünün içinde başka bir uygulama (ör. eski sürüm yedeği) varsa bilgi ver; derlemeye dahil edilmez
+for d in "$APP_DIR"/*/; do
+    if [[ -f ${d}package.json ]]; then
+        warn "Klasör içinde başka bir uygulama var: ${d%/} (derlemeye dahil edilmez; veritabanı taşıma için taranır)"
     fi
-fi
+done
 
 step "5/8 Bağımlılıklar ve derleme (birkaç dakika sürebilir)"
 cd "$APP_DIR"
@@ -285,6 +266,104 @@ cd "$APP_DIR"
 chown -R root:root "$APP_DIR"
 run "npm paketleri kuruluyor" npm ci --include=dev --no-audit --no-fund
 run "Prisma istemcisi oluşturuluyor" npx --no-install prisma generate
+
+# --- Eski kurulumdan veri taşıma ---
+# Yeni veritabanı yoksa ya da boşsa (yönetici ve başvuru yok), eski kurulumların veritabanları taranır;
+# en çok başvuru içeren seçilip kopyalanır. Eski dosyalar yerinde kalır.
+# Elle kaynak vermek için: OLD_DB=/yol/dev.db ya da OLD_DIR=/eski/klasor
+
+db_counts() { # <db dosyası> -> "<yönetici sayısı> <başvuru sayısı>" (SBF veritabanı değilse -1)
+    SBF_DB_FILE="$1" node - 2>/dev/null <<'NODEEOF' || echo "-1 -1"
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient({ datasources: { db: { url: "file:" + process.env.SBF_DB_FILE } } });
+const count = async (t) => {
+    try {
+        const r = await prisma.$queryRawUnsafe(`SELECT COUNT(*) AS c FROM "${t}"`);
+        return Number(r[0].c);
+    } catch {
+        return -1;
+    }
+};
+(async () => console.log(`${await count("User")} ${await count("Submission")}`))()
+    .finally(() => prisma.$disconnect());
+NODEEOF
+}
+
+candidate_dbs() { # olası eski veritabanı dosyaları (her satırda bir yol)
+    if [[ -n ${OLD_DB:-} ]]; then echo "$OLD_DB"; return 0; fi
+    local dirs=() d u
+    if [[ -n ${OLD_DIR:-} ]]; then
+        dirs=("$OLD_DIR")
+    else
+        dirs=("$PM2_CWD" "$OLD_UNIT_DIR" /opt/sbf-payment /var/www/sbf-payment "$APP_DIR")
+        for d in "$APP_DIR"/*/; do
+            if [[ -f ${d}prisma/schema.prisma ]]; then dirs+=("${d%/}"); fi
+        done
+    fi
+    for d in "${dirs[@]}"; do
+        if [[ -z $d || ! -d $d ]]; then continue; fi
+        u="$(env_value "$d/.env" DATABASE_URL)"
+        if [[ -n $u ]]; then db_path_from_url "$u" "$d"; fi
+        find "$d" -maxdepth 3 -name '*.db' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/yedek/*' 2>/dev/null || true
+    done
+    return 0
+}
+
+app_dir_of_db() { # veritabanı dosyasının ait olduğu uygulama klasörü (package.json içeren üst klasör)
+    local d
+    d="$(dirname "$1")"
+    for _ in 1 2 3; do
+        if [[ -f $d/package.json ]]; then echo "$d"; return 0; fi
+        d="$(dirname "$d")"
+    done
+    return 0
+}
+
+CUR_USERS=-1; CUR_SUBS=-1
+if [[ -f $DB_PATH ]]; then read -r CUR_USERS CUR_SUBS <<<"$(db_counts "$DB_PATH")"; fi
+
+if [[ ! -f $DB_PATH ]] || (( CUR_USERS <= 0 && CUR_SUBS <= 0 )) || [[ -n ${OLD_DB:-}${OLD_DIR:-} ]]; then
+    BEST_DB=""; BEST_SUBS=-1; BEST_MTIME=0
+    declare -A SEEN=()
+    while IFS= read -r f; do
+        if [[ -z $f || ! -f $f || -n ${SEEN[$f]:-} || $f == "$DB_PATH" || $f == "$APP_DIR/data/"* ]]; then continue; fi
+        SEEN[$f]=1
+        read -r u s <<<"$(db_counts "$f")"
+        if [[ -z ${s:-} || ${u:--1} -lt 0 || $s -lt 0 ]]; then continue; fi
+        m="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
+        info "Eski veritabanı adayı: $f  ($u yönetici, $s başvuru)"
+        if (( s > BEST_SUBS || (s == BEST_SUBS && m > BEST_MTIME) )); then
+            BEST_DB="$f"; BEST_SUBS=$s; BEST_MTIME=$m
+        fi
+    done < <(candidate_dbs)
+
+    if [[ -n $BEST_DB ]]; then
+        if [[ -f $DB_PATH ]]; then
+            mkdir -p "$(dirname "$DB_PATH")/yedek"
+            cp -p "$DB_PATH" "$(dirname "$DB_PATH")/yedek/sbf-tasima-oncesi-$(date +%Y%m%d-%H%M%S).db"
+        fi
+        rm -f "$DB_PATH-journal"
+        if command -v sqlite3 >/dev/null 2>&1; then
+            run "Eski veritabanı taşınıyor ($BEST_DB)" sqlite3 "$BEST_DB" ".backup '$DB_PATH'"
+        else
+            run "Eski veritabanı taşınıyor ($BEST_DB)" cp -f "$BEST_DB" "$DB_PATH"
+        fi
+        SRC_APP="$(app_dir_of_db "$BEST_DB")"
+        if [[ -n $SRC_APP && $SRC_APP != "$APP_DIR" ]]; then
+            for d in uploads public/uploads public/documents; do
+                if [[ -d $SRC_APP/$d ]]; then
+                    mkdir -p "$APP_DIR/$d"
+                    cp -rpn "$SRC_APP/$d/." "$APP_DIR/$d/" 2>/dev/null || true
+                    info "$SRC_APP/$d dosyaları kopyalandı (mevcutların üzerine yazılmadı)."
+                fi
+            done
+        fi
+    else
+        info "Taşınacak eski veritabanı bulunamadı; boş veritabanıyla devam ediliyor."
+    fi
+else
+    info "Mevcut veritabanında $CUR_USERS yönetici, $CUR_SUBS başvuru var; eski veri taşınmadı."
+fi
 
 if [[ -f $DB_PATH ]]; then
     BACKUP_DIR="$(dirname "$DB_PATH")/yedek"
