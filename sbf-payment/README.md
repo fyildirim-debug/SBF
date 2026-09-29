@@ -92,71 +92,44 @@ E-posta : admin@ankara.edu.tr
 
 ---
 
-## 🚀 Production Kurumu (Red Hat Linux)
+## 🚀 Production Kurulumu (tek komut)
 
-### 1. Node.js Kurulumu
+Kurulum paketi (`SBF-kurulum.zip`) sunucuda `/var/www/SBF` içine açılır ve tek betikle kurulur:
 
 ```bash
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo dnf install -y nodejs
+sudo mkdir -p /var/www/SBF
+sudo unzip -o SBF-kurulum.zip -d /var/www/SBF
+sudo bash /var/www/SBF/install.sh
 ```
 
-### 2. Proje Kurulumu
+`install.sh` şunları yapar:
+
+- Node.js 20.9+ yoksa kurar (dnf / yum / apt)
+- `.env` dosyasını rastgele `AUTH_SECRET` ile oluşturur; veritabanı `data/sbf.db`, dekontlar `uploads/` altında tutulur
+- `/opt/sbf-payment` gibi eski bir kurulum varsa veritabanını ve dekontları kopyalar (eski dosyalar yerinde kalır)
+- Bağımlılıkları kurar, şemayı uygular, uygulamayı derler
+- Boş kurulumda ilk yöneticiyi oluşturur; şifre ekrana ve `/root/sbf-ilk-yonetici.txt` dosyasına yazılır
+- `sbf-payment` systemd servisini kurar: sunucu her açıldığında otomatik başlar, çökerse yeniden başlar
+- firewalld açıksa portu açar, uygulamanın yanıt verdiğini kontrol eder; hata olursa eski servisi geri başlatır
+
+Seçenekler: `sudo PORT=3000 bash install.sh`, `sudo ADMIN_EMAIL=ad@ankara.edu.tr bash install.sh`, `sudo OLD_DIR=/eski/klasor bash install.sh`.
+Ayrıntılı çıktı: `/var/www/SBF/kurulum.log`.
 
 ```bash
-cd /var/www/sbf-payment
-npm install
-npm run build
-```
-
-### 3. Ortam Değişkenleri
-
-```bash
-# .env dosyasını oluştur
-cat > .env << EOF
-DATABASE_URL="file:./prisma/prod.db"
-AUTH_SECRET="$(openssl rand -base64 32)"
-NEXTAUTH_URL="https://sizin-domain-adiniz.com"
-EOF
-```
-
-### 4. Veritabanı Kurulumu
-
-```bash
-npx prisma db push
-npx ts-node prisma/seed.ts
-```
-
-### 5. PM2 ile Çalıştırma
-
-```bash
-# PM2 kur
-sudo npm install -g pm2
-
-# Uygulamayı başlat
-pm2 start npm --name "sbf-payment" -- start
-
-# Sunucu yeniden başladığında otomatik başlat
-pm2 startup
-pm2 save
+systemctl status sbf-payment      # durum
+systemctl restart sbf-payment     # yeniden başlat
+journalctl -u sbf-payment -f      # canlı log
 ```
 
 ---
 
 ## 🔄 Güncelleme
 
+Yeni zip'i aynı klasöre açıp betiği tekrar çalıştırın; `data/`, `uploads/` ve `.env` korunur:
+
 ```bash
-# Yeni kodu çek
-git pull
-
-# Bağımlılıkları güncelle
-npm install
-
-# Şema değişikliklerini uygula (veri silinmez)
-npx prisma migrate deploy
-
-# Uygulamayı yeniden başlat
-pm2 restart sbf-payment
+sudo unzip -o SBF-kurulum.zip -d /var/www/SBF
+sudo bash /var/www/SBF/install.sh
 ```
 
 ---
@@ -177,14 +150,12 @@ npx ts-node prisma/seed.ts
 
 ```bash
 # Yalnızca başvuruları sil, admin/tesis bilgileri korunur
-sqlite3 prisma/prod.db "DELETE FROM DocumentConsent; DELETE FROM Submission;"
+sqlite3 /var/www/SBF/data/sbf.db "DELETE FROM DocumentConsent; DELETE FROM Submission;"
 ```
 
 ### Production — Şema Güncelleme (Veri Korunur)
 
-```bash
-npx prisma migrate deploy
-```
+`install.sh` her çalıştığında `prisma db push` ile şemayı veri silmeden günceller.
 
 ---
 
